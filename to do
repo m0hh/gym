@@ -1,0 +1,10 @@
+trucks
+destinations
+trips
+-photot of the truk leaving sent to ocr service to confirm leaving and create estimation
+leaving time 
+estimated arrival
+actual arrival
+load
+
+two services to clculate load and time idle for now
