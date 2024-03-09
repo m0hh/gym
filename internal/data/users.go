@@ -13,6 +13,7 @@ import (
 
 var (
 	ErrDuplicateEmail = errors.New("duplicate email")
+	TraineeRole       = "trainee"
 )
 
 var AnonymousUser = &User{}
@@ -103,7 +104,7 @@ func (m UserModel) Insert(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, stmt, args...).Scan(&user.Id, &user.CreatedAt, user.Version)
+	err := m.DB.QueryRowContext(ctx, stmt, args...).Scan(&user.Id, &user.CreatedAt, &user.Version)
 	if err != nil {
 		switch {
 		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
@@ -117,14 +118,14 @@ func (m UserModel) Insert(user *User) error {
 }
 
 func (m UserModel) RetrieveByEmail(email string) (*User, error) {
-	stmt := `SELECT id, name, email,version,role, activated, created_at
+	stmt := `SELECT id, name, email,version,role, activated, created_at, password_hash
 	FROM users WHERE email = $1`
 
 	var user User
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, stmt).Scan(
+	err := m.DB.QueryRowContext(ctx, stmt, email).Scan(
 		&user.Id,
 		&user.Name,
 		&user.Email,
@@ -132,6 +133,7 @@ func (m UserModel) RetrieveByEmail(email string) (*User, error) {
 		&user.Role,
 		&user.Activated,
 		&user.CreatedAt,
+		&user.Password.hash,
 	)
 
 	if err != nil {
