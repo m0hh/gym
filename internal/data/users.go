@@ -14,6 +14,8 @@ import (
 var (
 	ErrDuplicateEmail = errors.New("duplicate email")
 	TraineeRole       = "trainee"
+	CoachRole         = "coach"
+	AdminRole         = "admin"
 )
 
 var AnonymousUser = &User{}
