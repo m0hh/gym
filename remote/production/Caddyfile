@@ -2,7 +2,7 @@
   email mohamed.ehab.desoky@gmail.com
 }
 
-http://ec2-54-208-26-161.compute-1.amazonaws.com {
+http://ec2-54-165-232-94.compute-1.amazonaws.com {
   respond /debug/* "Not Permitted" 403
   reverse_proxy localhost:4000
 }

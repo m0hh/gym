@@ -64,7 +64,7 @@ sudo -i -u postgres psql -d gym -c "CREATE ROLE gym WITH LOGIN PASSWORD '${DB_PA
 
 # Add a DSN for connecting to the greenlight database to the system-wide environment 
 # variables in the /etc/environment file.
-echo "db-dsn='postgres://ubuntu:${DB_PASSWORD}@localhost/gym'" >> /etc/environment
+echo "db_dsn='postgres://gym:${DB_PASSWORD}@localhost/gym'" >> /etc/environment
 
 # Install Caddy (see https://caddyserver.com/docs/install#debian-ubuntu-raspbian).
 # Install Caddy (see https://caddyserver.com/docs/install#debian-ubuntu-raspbian).

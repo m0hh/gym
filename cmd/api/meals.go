@@ -188,3 +188,44 @@ func (app *application) listFoods(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+func (app *application) addBreakfast(w http.ResponseWriter, r *http.Request) {
+
+	var breakfast_input struct {
+		Id       int         `json:"id"`
+		Calories int         `json:"calories"`
+		Foods    []data.Food `json:"foods"`
+	}
+
+	err := app.ReadJSON(w, r, &breakfast_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	breakfast := &data.Breakfast{
+		Calories: breakfast_input.Calories,
+		Food:     breakfast_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidateBreakfast(v, *breakfast); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.CreateBreakfast(breakfast)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"breakfast": breakfast}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}

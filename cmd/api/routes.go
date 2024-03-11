@@ -28,6 +28,8 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodPatch, "/v1/meals/food/update/:id", app.requireAdmin(app.updateFood))
 	router.HandlerFunc(http.MethodGet, "/v1/meals/food/get", app.listFoods)
 
+	router.HandlerFunc(http.MethodPost, "/v1/meals/breakfast/add", app.requireCoachOrAdmin(app.addBreakfast))
+
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 
 	return app.metrics(app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router)))))

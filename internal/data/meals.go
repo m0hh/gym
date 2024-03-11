@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/m0hh/smart-logitics/internal/validator"
@@ -16,33 +18,33 @@ type Food struct {
 }
 
 type Breakfast struct {
-	Id       int64 `json:"id"`
-	Calories int
-	Food     Food `json:"food"`
+	Id       int64  `json:"id"`
+	Calories int    `json:"calories"`
+	Food     []Food `json:"food"`
 }
 
 type AmSnack struct {
-	Id       int64 `json:"id"`
-	Calories int
-	Food     Food `json:"food"`
+	Id       int64  `json:"id"`
+	Calories int    `json:"calories"`
+	Food     []Food `json:"food"`
 }
 
 type Lunch struct {
-	Id       int64 `json:"id"`
-	Calories int
-	Food     Food `json:"food"`
+	Id       int64  `json:"id"`
+	Calories int    `json:"calories"`
+	Food     []Food `json:"food"`
 }
 
 type PmSnack struct {
-	Id       int64 `json:"id"`
-	Calories int
-	Food     Food `json:"food"`
+	Id       int64  `json:"id"`
+	Calories int    `json:"calories"`
+	Food     []Food `json:"food"`
 }
 
 type Dinner struct {
-	Id       int64 `json:"id"`
-	Calories int
-	Food     Food `json:"food"`
+	Id       int64  `json:"id"`
+	Calories int    `json:"calories"`
+	Food     []Food `json:"food"`
 }
 
 type MealsModel struct {
@@ -168,4 +170,53 @@ func (m MealsModel) GetAllFood(food_name string, serving string, filter Filters)
 	}
 	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
 	return foods, metadata, nil
+}
+
+func ValidateBreakfast(v *validator.Validator, breakfast Breakfast) {
+	v.Check(breakfast.Calories > 0, "breakfast", "calories must be bigger than 0")
+	for _, food := range breakfast.Food {
+		ValidateFood(v, food)
+	}
+}
+
+func (m MealsModel) CreateBreakfast(breakfast *Breakfast) error {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	stmt := `INSERT INTO breakfast (calories) VALUES ($1) RETURNING id`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err = tx.QueryRowContext(context, stmt, breakfast.Calories).Scan(&breakfast.Id)
+
+	if err != nil {
+		return err
+	}
+
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, food := range breakfast.Food {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, breakfast.Id, food.Id)
+		i += 2
+	}
+
+	fmt.Println(strings.Join(bulkInsertStrings, ","))
+	stmt1 := fmt.Sprintf(`INSERT INTO breakfast_food (breakfast_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		return err
+	}
+	tx.Commit()
+
+	return nil
 }

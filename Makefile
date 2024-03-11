@@ -21,12 +21,12 @@ confirm:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:
-	go run ./cmd/api -db-dsn=${db-dsn} -smtp-password=tckicdjnagxnpsgc
+	go run ./cmd/api -db-dsn=${db_dsn} -smtp-password=tckicdjnagxnpsgc
 
 ## db/psql: connect to the database using psql
 .PHONY: db/psql
 db/psql:
-	psql ${db-dsn}
+	psql ${db_dsn}
 
 ## db/migrations/new name=$1: create a new database migration
 .PHONY: db/migrations/new
@@ -38,7 +38,7 @@ db/migrations/new:
 .PHONY: db/migrations/up
 db/migrations/up: confirm
 	@echo 'Running up migrations...'
-	migrate -path ./migrations -database ${db-dsn} up
+	migrate -path ./migrations -database ${db_dsn} up
 
 # ==================================================================================== #
 # QUALITY CONTROL
@@ -99,7 +99,9 @@ production/connect:
 .PHONY: production/deploy/api
 production/deploy/api:
 	rsync -rP --delete -e ${pem_location_rsync} ./bin/linux_amd64/api ./migrations  ${production_host_ip}:~
-	ssh -i   ${pem_location}  -t ${production_host_ip} 'migrate -path ~/migrations -database $$db-dsn'
+	ssh -i   ${pem_location}  -t ${production_host_ip} 'migrate -path ~/migrations -database $$db_dsn up'
+
+	
 
 
 ## production/configure/api.service: configure the production systemd api.service file
