@@ -96,6 +96,8 @@ func (m MealsModel) UpdateFood(food *Food) error {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrRcordNotFound
+		case err.Error() == `pq: duplicate key value violates unique constraint "unique_food_serving"`:
+			return ErrUniqueFood
 		default:
 			return err
 		}
@@ -122,4 +124,48 @@ func (m MealsModel) GetById(food *Food) error {
 		}
 	}
 	return nil
+}
+
+func (m MealsModel) GetAllFood(food_name string, serving string, filter Filters) ([]*Food, Metadata, error) {
+	query := `
+	SELECT count(*) OVER(),id, food_name, serving
+	FROM food
+	WHERE (to_tsvector('simple', food_name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+	AND (to_tsvector('simple', serving) @@ plainto_tsquery('simple', $2) OR $2 = '')
+	LIMIT $3 OFFSET $4`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(ctx, query, food_name, serving, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	totalRecords := 0
+	foods := []*Food{}
+
+	for rows.Next() {
+		var food Food
+		err := rows.Scan(
+			&totalRecords,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+		)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+
+		foods = append(foods, &food)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+	return foods, metadata, nil
 }
