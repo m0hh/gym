@@ -44,8 +44,8 @@ func Matches(value string, rx *regexp.Regexp) bool {
 	return rx.MatchString(value)
 }
 
-func Unique(values []string) bool {
-	uniquevalues := make(map[string]bool)
+func Unique[T comparable](values []T) bool {
+	uniquevalues := make(map[T]bool)
 	for _, value := range values {
 		uniquevalues[value] = true
 	}

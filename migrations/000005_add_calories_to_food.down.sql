@@ -1,0 +1,2 @@
+ALTER TABLE food
+DROP COLUMN IF EXISTS calories;

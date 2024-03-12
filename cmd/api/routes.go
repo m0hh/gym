@@ -29,6 +29,7 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/meals/food/get", app.listFoods)
 
 	router.HandlerFunc(http.MethodPost, "/v1/meals/breakfast/add", app.requireCoachOrAdmin(app.addBreakfast))
+	router.HandlerFunc(http.MethodPatch, "/v1/meals/breakfast/update/:id", app.requireAdmin(app.updateBreakfast))
 
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 

@@ -1,0 +1,4 @@
+UPDATE food SET calories = 100;
+
+ALTER TABLE food
+ALTER COLUMN calories SET NOT NULL;

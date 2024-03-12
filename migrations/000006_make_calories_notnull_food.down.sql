@@ -1,0 +1,2 @@
+ALTER TABLE food
+ALTER COLUMN calories DROP NOT NULL;

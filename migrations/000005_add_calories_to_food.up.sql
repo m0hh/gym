@@ -1,0 +1,2 @@
+ALTER TABLE food
+ADD COLUMN IF NOT EXISTS calories integer;
