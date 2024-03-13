@@ -10,4 +10,19 @@ load
 two services to clculate load and time idle for now
 
 
-page and page size aren't working 
+ meant to reference the column "breakfast_food.food_id".
+smart-logistics=# SELECT * FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id INNER JOIN food ON breakfast_food.food_id = food.id;
+ id | calories | breakfast_id | food_id | id | food_name | serving | calories 
+----+----------+--------------+---------+----+-----------+---------+----------
+  4 |      300 |            4 |       1 |  1 | Eggsss    | 13      |      700
+  4 |      300 |            4 |       7 |  7 | Eggs      | 1       |      100
+  6 |        0 |            6 |      10 | 10 | honey     | 1       |      100
+  6 |        0 |            6 |      11 | 11 | apple     | 1       |      100
+ 12 |       50 |           12 |      11 | 11 | apple     | 1       |      100
+ 12 |       50 |           12 |      10 | 10 | honey     | 1       |      100
+  5 |       50 |            5 |      11 | 11 | apple     | 1       |      100
+  5 |       50 |            5 |      10 | 10 | honey     | 1       |      100
+(8 rows)
+
+smart-logistics=# 
+

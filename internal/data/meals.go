@@ -176,6 +176,59 @@ func (m MealsModel) GetAllFood(food_name string, serving string, filter Filters)
 	return foods, metadata, nil
 }
 
+func (m MealsModel) DeleteFood(id int64) error {
+	if id < 1 {
+		return ErrRcordNotFound
+	}
+
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query1 := `
+        DELETE FROM breakfast_food 
+        WHERE food_id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err = tx.ExecContext(ctx, query1, id)
+
+	if err != nil {
+		return err
+	}
+
+	query := `
+        DELETE FROM food
+        WHERE id = $1`
+
+	result, err := tx.ExecContext(ctx, query, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRcordNotFound
+	}
+
+	tx.Commit()
+
+	return nil
+}
+
 func ValidateBreakfast(v *validator.Validator, breakfast Breakfast) {
 	v.Check(len(breakfast.Food) > 0, "food", "must send more than 0 foods")
 	var ids []int
@@ -298,6 +351,165 @@ func (m *MealsModel) UpdateBreakfast(breakfast *Breakfast) error {
 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
 	if err != nil {
 		return err
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func (m *MealsModel) GetAllBreakfastFoodsId(breakfast *Breakfast) error {
+	stmt := `SELECT breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
+	 INNER JOIN food ON breakfast_food.food_id = food.id
+	 WHERE breakfast.id = $1
+	 `
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, breakfast.Id)
+
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		food := Food{}
+		err = rows.Scan(
+			&breakfast.Calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
+
+		if err != nil {
+			return err
+		}
+		breakfast.Food = append(breakfast.Food, food)
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	if breakfast.Calories == 0 {
+		return ErrRcordNotFound
+	}
+
+	return nil
+}
+
+func (m *MealsModel) GetAllBreakfastFoods(filter Filters) ([]*Breakfast, Metadata, error) {
+	stmt := `SELECT count(*) OVER(), breakfast.id, breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
+	 INNER JOIN food ON breakfast_food.food_id = food.id
+	 LIMIT $1 OFFSET $2
+	 `
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	ids_to_breakfast := make(map[int]*Breakfast)
+	var breakfasts []*Breakfast
+	totalRecords := 0
+
+	for rows.Next() {
+
+		var breakfast_id int
+		var breakfast_calories int
+		food := Food{}
+		err = rows.Scan(
+			&totalRecords,
+			&breakfast_id,
+			&breakfast_calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
+
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		if _, ok := ids_to_breakfast[breakfast_id]; !ok {
+
+			breakfast := Breakfast{Id: int64(breakfast_id), Calories: breakfast_calories}
+			ids_to_breakfast[breakfast_id] = &breakfast
+
+			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
+			breakfasts = append(breakfasts, ids_to_breakfast[breakfast_id])
+		} else {
+			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
+		}
+
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+	return breakfasts, metadata, nil
+
+}
+
+func (m MealsModel) DeleteBreakfast(id int64) error {
+	if id < 1 {
+		return ErrRcordNotFound
+	}
+
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := `
+        DELETE FROM breakfast_food 
+        WHERE breakfast_id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err = tx.ExecContext(ctx, query, id)
+
+	if err != nil {
+		return err
+	}
+
+	query1 := `
+        DELETE FROM breakfast
+        WHERE id = $1`
+
+	result, err := tx.ExecContext(ctx, query1, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRcordNotFound
 	}
 	tx.Commit()
 

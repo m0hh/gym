@@ -27,9 +27,13 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/meals/food/get/:id", app.retriveFood)
 	router.HandlerFunc(http.MethodPatch, "/v1/meals/food/update/:id", app.requireAdmin(app.updateFood))
 	router.HandlerFunc(http.MethodGet, "/v1/meals/food/get", app.listFoods)
+	router.HandlerFunc(http.MethodDelete, "/v1/meals/food/delete/:id", app.requireAdmin(app.deleteFoodHandler))
 
 	router.HandlerFunc(http.MethodPost, "/v1/meals/breakfast/add", app.requireCoachOrAdmin(app.addBreakfast))
 	router.HandlerFunc(http.MethodPatch, "/v1/meals/breakfast/update/:id", app.requireAdmin(app.updateBreakfast))
+	router.HandlerFunc(http.MethodGet, "/v1/meals/breakfast/get/:id", app.getBreakfastFoodById)
+	router.HandlerFunc(http.MethodGet, "/v1/meals/breakfast/get", app.listBreakfasts)
+	router.HandlerFunc(http.MethodDelete, "/v1/meals/breakfast/delete/:id", app.requireAdmin(app.deleteBreakfastHandler))
 
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 
