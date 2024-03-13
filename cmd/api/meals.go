@@ -400,3 +400,188 @@ func (app *application) deleteBreakfastHandler(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+///////////////////////
+
+func (app *application) addAmSnack(w http.ResponseWriter, r *http.Request) {
+
+	var am_snack_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err := app.ReadJSON(w, r, &am_snack_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	am_snack := &data.AmSnack{
+		Food: am_snack_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidateAmSnack(v, *am_snack); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.CreateAmSnack(am_snack)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"am_snack": am_snack}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateAmSnack(w http.ResponseWriter, r *http.Request) {
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	var am_snack_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err = app.ReadJSON(w, r, &am_snack_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	am_snack := &data.AmSnack{
+		Id:   id,
+		Food: am_snack_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidateAmSnack(v, *am_snack); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.UpdateAmSnack(am_snack)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"am_snack": am_snack}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) getAmSnackFoodById(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	am_snack := &data.AmSnack{
+		Id: id,
+	}
+
+	err = app.models.Meals.GetAllAmSnackID(am_snack)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"am_snack": am_snack}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) listAmSnacks(w http.ResponseWriter, r *http.Request) {
+
+	var input struct {
+		data.Filters
+	}
+
+	v := validator.New()
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	am_snacks, metadata, err := app.models.Meals.GetAllAmSnacks(input.Filters)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"am_snacks": am_snacks, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
+
+func (app *application) deleteAmSnackHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.models.Meals.DeleteAmSnack(id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
