@@ -955,3 +955,188 @@ func (app *application) deletePmSnackHandler(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+///////////////////////////////////
+
+func (app *application) addDinner(w http.ResponseWriter, r *http.Request) {
+
+	var dinner_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err := app.ReadJSON(w, r, &dinner_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	dinner := &data.Dinner{
+		Food: dinner_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidateDinner(v, *dinner); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.CreateDinner(dinner)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"dinner": dinner}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateDinner(w http.ResponseWriter, r *http.Request) {
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	var dinner_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err = app.ReadJSON(w, r, &dinner_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	dinner := &data.Dinner{
+		Id:   id,
+		Food: dinner_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidateDinner(v, *dinner); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.UpdateDinner(dinner)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"dinner": dinner}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) getDinnerById(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	dinner := &data.Dinner{
+		Id: id,
+	}
+
+	err = app.models.Meals.GetAllDinnerID(dinner)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"dinner": dinner}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) listDinners(w http.ResponseWriter, r *http.Request) {
+
+	var input struct {
+		data.Filters
+	}
+
+	v := validator.New()
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	dinners, metadata, err := app.models.Meals.GetAllDinners(input.Filters)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"dinners": dinners, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
+
+func (app *application) deleteDinnerHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.models.Meals.DeleteDinner(id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -1444,7 +1444,6 @@ func (m MealsModel) CreateDinner(Dinner *Dinner) error {
 
 	stmt1 := fmt.Sprintf(`INSERT INTO dinner_food (dinner_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-	fmt.Println(err.Error() == `pq: insert or update on table "dinner_food" violates foreign key constraint "dinner_food_food_id_fkey"`)
 	if err != nil {
 		if err.Error() == `pq: insert or update on table "dinner_food" violates foreign key constraint "dinner_food_food_id_fkey"` {
 			return ErrWrongForeignKey
