@@ -585,3 +585,373 @@ func (app *application) deleteAmSnackHandler(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+//////////////////////////////
+
+func (app *application) addLunch(w http.ResponseWriter, r *http.Request) {
+
+	var lunch_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err := app.ReadJSON(w, r, &lunch_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	lunch := &data.Lunch{
+		Food: lunch_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidateLunch(v, *lunch); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.CreateLunch(lunch)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"lunch": lunch}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateLunch(w http.ResponseWriter, r *http.Request) {
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	var lunch_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err = app.ReadJSON(w, r, &lunch_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	lunch := &data.Lunch{
+		Id:   id,
+		Food: lunch_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidateLunch(v, *lunch); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.UpdateLunch(lunch)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"lunch": lunch}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) getLunchById(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	lunch := &data.Lunch{
+		Id: id,
+	}
+
+	err = app.models.Meals.GetAllLunchFoodsId(lunch)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"lunch": lunch}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) listlunches(w http.ResponseWriter, r *http.Request) {
+
+	var input struct {
+		data.Filters
+	}
+
+	v := validator.New()
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	lunches, metadata, err := app.models.Meals.GetAllLunches(input.Filters)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"lunches": lunches, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
+
+func (app *application) deleteLunchHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.models.Meals.DeleteLunch(id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+//////////////////////////////////////
+
+func (app *application) addPmSnack(w http.ResponseWriter, r *http.Request) {
+
+	var pm_snack_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err := app.ReadJSON(w, r, &pm_snack_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	pm_snack := &data.PmSnack{
+		Food: pm_snack_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidatePmSnack(v, *pm_snack); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.CreatePmSnack(pm_snack)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"pm_snack": pm_snack}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updatePmSnack(w http.ResponseWriter, r *http.Request) {
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	var pm_snack_input struct {
+		Foods []data.Food `json:"foods"`
+	}
+
+	err = app.ReadJSON(w, r, &pm_snack_input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	pm_snack := &data.PmSnack{
+		Id:   id,
+		Food: pm_snack_input.Foods,
+	}
+
+	v := validator.New()
+
+	if data.ValidatePmSnack(v, *pm_snack); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Meals.UpdatePmSnack(pm_snack)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"pm_snack": pm_snack}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) getPmSnackById(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	pm_snack := &data.PmSnack{
+		Id: id,
+	}
+
+	err = app.models.Meals.GetAllPmSnackID(pm_snack)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"pm_snack": pm_snack}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) listPmsnacks(w http.ResponseWriter, r *http.Request) {
+
+	var input struct {
+		data.Filters
+	}
+
+	v := validator.New()
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	pm_snacks, metadata, err := app.models.Meals.GetAllPmSnacks(input.Filters)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"pm_snacks": pm_snacks, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
+
+func (app *application) deletePmSnackHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.models.Meals.DeletePmSnack(id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

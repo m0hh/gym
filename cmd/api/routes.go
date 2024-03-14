@@ -41,6 +41,18 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/meals/amsnack/get", app.listAmSnacks)
 	router.HandlerFunc(http.MethodDelete, "/v1/meals/amsnack/delete/:id", app.requireAdmin(app.deleteAmSnackHandler))
 
+	router.HandlerFunc(http.MethodPost, "/v1/meals/lunch/add", app.requireCoachOrAdmin(app.addLunch))
+	router.HandlerFunc(http.MethodPatch, "/v1/meals/lunch/update/:id", app.requireAdmin(app.updateLunch))
+	router.HandlerFunc(http.MethodGet, "/v1/meals/lunch/get/:id", app.getLunchById)
+	router.HandlerFunc(http.MethodGet, "/v1/meals/lunch/get", app.listlunches)
+	router.HandlerFunc(http.MethodDelete, "/v1/meals/lunch/delete/:id", app.requireAdmin(app.deleteLunchHandler))
+
+	router.HandlerFunc(http.MethodPost, "/v1/meals/pmsnack/add", app.requireCoachOrAdmin(app.addPmSnack))
+	router.HandlerFunc(http.MethodPatch, "/v1/meals/pmsnack/update/:id", app.requireAdmin(app.updatePmSnack))
+	router.HandlerFunc(http.MethodGet, "/v1/meals/pmsnack/get/:id", app.getPmSnackById)
+	router.HandlerFunc(http.MethodGet, "/v1/meals/pmsnack/get", app.listPmsnacks)
+	router.HandlerFunc(http.MethodDelete, "/v1/meals/pmsnack/delete/:id", app.requireAdmin(app.deletePmSnackHandler))
+
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 
 	return app.metrics(app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router)))))

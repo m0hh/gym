@@ -813,867 +813,875 @@ func (m MealsModel) DeleteAmSnack(id int64) error {
 
 ///////////////////////////////////////////////////////////////////////////////////
 
-// func ValidateBreakfast(v *validator.Validator, breakfast Breakfast) {
-// 	v.Check(len(breakfast.Food) > 0, "food", "must send more than 0 foods")
-// 	var ids []int
-// 	for _, food := range breakfast.Food {
-// 		ValidateFood(v, food)
-// 		ids = append(ids, int(food.Id))
-// 	}
-// 	v.Check(validator.Unique(ids), "food", "You munst send not send the same food twice")
-// }
+func ValidateLunch(v *validator.Validator, lunch Lunch) {
+	v.Check(len(lunch.Food) > 0, "food", "must send more than 0 foods")
+	var ids []int
+	for _, food := range lunch.Food {
+		ValidateFood(v, food)
+		ids = append(ids, int(food.Id))
+	}
+	v.Check(validator.Unique(ids), "food", "You munst send not send the same food twice")
+}
 
-// func (m MealsModel) CreateBreakfast(breakfast *Breakfast) error {
-// 	calories := 0
-// 	for i := range breakfast.Food {
-// 		calories += breakfast.Food[i].Calories
-// 	}
-// 	breakfast.Calories = calories
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
+func (m MealsModel) CreateLunch(lunch *Lunch) error {
+	calories := 0
+	for i := range lunch.Food {
+		calories += lunch.Food[i].Calories
+	}
+	lunch.Calories = calories
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
 
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-// 	stmt := `INSERT INTO breakfast (calories) VALUES ($1) RETURNING id`
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	stmt := `INSERT INTO lunch (calories) VALUES ($1) RETURNING id`
 
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-// 	err = tx.QueryRowContext(context, stmt, breakfast.Calories).Scan(&breakfast.Id)
+	err = tx.QueryRowContext(context, stmt, lunch.Calories).Scan(&lunch.Id)
 
-// 	if err != nil {
-// 		return err
-// 	}
+	if err != nil {
+		return err
+	}
 
-// 	var bulkInsertValues []interface{}
-// 	bulkInsertStrings := make([]string, 0)
-// 	i := 1
-// 	for _, food := range breakfast.Food {
-// 		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
-// 		bulkInsertValues = append(bulkInsertValues, breakfast.Id, food.Id)
-// 		i += 2
-// 	}
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, food := range lunch.Food {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, lunch.Id, food.Id)
+		i += 2
+	}
 
-// 	stmt1 := fmt.Sprintf(`INSERT INTO breakfast_food (breakfast_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
-// 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-// 	if err != nil {
-// 		if err.Error() == `pq: insert or update on table "breakfast_food" violates foreign key constraint "breakfast_food_food_id_fkey"` {
-// 			return ErrWrongForeignKey
-// 		}
-// 		return err
-// 	}
-// 	tx.Commit()
+	stmt1 := fmt.Sprintf(`INSERT INTO lunch_food (lunch_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		if err.Error() == `pq: insert or update on table "lunch_food" violates foreign key constraint "lunch_food_food_id_fkey"` {
+			return ErrWrongForeignKey
+		}
+		return err
+	}
+	tx.Commit()
 
-// 	return nil
-// }
+	return nil
+}
 
-// func (m *MealsModel) UpdateBreakfast(breakfast *Breakfast) error {
-// 	calories := 0
-// 	for i := range breakfast.Food {
-// 		calories += breakfast.Food[i].Calories
-// 	}
-// 	breakfast.Calories = calories
+func (m *MealsModel) UpdateLunch(lunch *Lunch) error {
+	calories := 0
+	for i := range lunch.Food {
+		calories += lunch.Food[i].Calories
+	}
+	lunch.Calories = calories
 
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
 
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-// 	stmt2 := `UPDATE breakfast SET calories = $1 WHERE id = $2`
+	stmt2 := `UPDATE lunch SET calories = $1 WHERE id = $2`
 
-// 	_, err = tx.ExecContext(context, stmt2, breakfast.Calories, breakfast.Id)
+	_, err = tx.ExecContext(context, stmt2, lunch.Calories, lunch.Id)
 
-// 	if err != nil {
-// 		switch {
-// 		case errors.Is(err, sql.ErrNoRows):
-// 			return ErrRcordNotFound
-// 		default:
-// 			return err
-// 		}
-// 	}
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
 
-// 	stmt := `DELETE FROM breakfast_food WHERE breakfast_id = $1`
+	stmt := `DELETE FROM lunch_food WHERE lunch_id = $1`
 
-// 	_, err = tx.ExecContext(context, stmt, breakfast.Id)
+	_, err = tx.ExecContext(context, stmt, lunch.Id)
 
-// 	if err != nil {
-// 		switch {
-// 		case errors.Is(err, sql.ErrNoRows):
-// 			return ErrRcordNotFound
-// 		case err.Error() == `pq: insert or update on table "breakfast_food" violates foreign key constraint "breakfast_food_food_id_fkey"`:
-// 			return ErrWrongForeignKey
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
 
-// 		default:
-// 			return err
-// 		}
-// 	}
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, food := range lunch.Food {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, lunch.Id, food.Id)
+		i += 2
+	}
 
-// 	var bulkInsertValues []interface{}
-// 	bulkInsertStrings := make([]string, 0)
-// 	i := 1
-// 	for _, food := range breakfast.Food {
-// 		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
-// 		bulkInsertValues = append(bulkInsertValues, breakfast.Id, food.Id)
-// 		i += 2
-// 	}
+	stmt1 := fmt.Sprintf(`INSERT INTO lunch_food (lunch_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		switch {
+		case err.Error() == `pq: insert or update on table "lunch_food" violates foreign key constraint "lunch_food_food_id_fkey"`:
+			return ErrWrongForeignKey
 
-// 	stmt1 := fmt.Sprintf(`INSERT INTO breakfast_food (breakfast_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
-// 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	tx.Commit()
+		default:
+			return err
 
-// 	return nil
-// }
+		}
+	}
+	tx.Commit()
 
-// func (m *MealsModel) GetAllBreakfastFoodsId(breakfast *Breakfast) error {
-// 	stmt := `SELECT breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
-// 	 INNER JOIN food ON breakfast_food.food_id = food.id
-// 	 WHERE breakfast.id = $1
-// 	 `
+	return nil
+}
 
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m *MealsModel) GetAllLunchFoodsId(lunch *Lunch) error {
+	stmt := `SELECT lunch.calories,food.id,food_name,food.serving,food.calories FROM lunch INNER JOIN lunch_food ON lunch.id = lunch_food.lunch_id
+	 INNER JOIN food ON lunch_food.food_id = food.id
+	 WHERE lunch.id = $1
+	 `
 
-// 	defer cancel()
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
-// 	rows, err := m.DB.QueryContext(context, stmt, breakfast.Id)
+	defer cancel()
 
-// 	if err != nil {
-// 		return err
-// 	}
+	rows, err := m.DB.QueryContext(context, stmt, lunch.Id)
 
-// 	defer rows.Close()
+	if err != nil {
+		return err
+	}
 
-// 	for rows.Next() {
-// 		food := Food{}
-// 		err = rows.Scan(
-// 			&breakfast.Calories,
-// 			&food.Id,
-// 			&food.FoodName,
-// 			&food.Serving,
-// 			&food.Calories,
-// 		)
+	defer rows.Close()
 
-// 		if err != nil {
-// 			return err
-// 		}
-// 		breakfast.Food = append(breakfast.Food, food)
-// 	}
+	for rows.Next() {
+		food := Food{}
+		err = rows.Scan(
+			&lunch.Calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
 
-// 	if err = rows.Err(); err != nil {
-// 		return err
-// 	}
+		if err != nil {
+			return err
+		}
+		lunch.Food = append(lunch.Food, food)
+	}
 
-// 	if breakfast.Calories == 0 {
-// 		return ErrRcordNotFound
-// 	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
 
-// 	return nil
-// }
+	if lunch.Calories == 0 {
+		return ErrRcordNotFound
+	}
 
-// func (m *MealsModel) GetAllBreakfastFoods(filter Filters) ([]*Breakfast, Metadata, error) {
-// 	stmt := `SELECT count(*) OVER(), breakfast.id, breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
-// 	 INNER JOIN food ON breakfast_food.food_id = food.id
-// 	 LIMIT $1 OFFSET $2
-// 	 `
+	return nil
+}
 
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m *MealsModel) GetAllLunches(filter Filters) ([]*Lunch, Metadata, error) {
+	stmt := `SELECT count(*) OVER(), lunch.id, lunch.calories,food.id,food_name,food.serving,food.calories FROM lunch INNER JOIN lunch_food ON lunch.id = lunch_food.lunch_id
+	 INNER JOIN food ON lunch_food.food_id = food.id
+	 LIMIT $1 OFFSET $2
+	 `
 
-// 	defer cancel()
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
-// 	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+	defer cancel()
 
-// 	if err != nil {
-// 		return nil, Metadata{}, err
-// 	}
+	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
 
-// 	defer rows.Close()
+	if err != nil {
+		return nil, Metadata{}, err
+	}
 
-// 	ids_to_breakfast := make(map[int]*Breakfast)
-// 	var breakfasts []*Breakfast
-// 	totalRecords := 0
+	defer rows.Close()
 
-// 	for rows.Next() {
+	ids_to_lunches := make(map[int]*Lunch)
+	var lunches []*Lunch
+	totalRecords := 0
 
-// 		var breakfast_id int
-// 		var breakfast_calories int
-// 		food := Food{}
-// 		err = rows.Scan(
-// 			&totalRecords,
-// 			&breakfast_id,
-// 			&breakfast_calories,
-// 			&food.Id,
-// 			&food.FoodName,
-// 			&food.Serving,
-// 			&food.Calories,
-// 		)
+	for rows.Next() {
 
-// 		if err != nil {
-// 			return nil, Metadata{}, err
-// 		}
-// 		if _, ok := ids_to_breakfast[breakfast_id]; !ok {
+		var lunch_id int
+		var lunch_calories int
+		food := Food{}
+		err = rows.Scan(
+			&totalRecords,
+			&lunch_id,
+			&lunch_calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
 
-// 			breakfast := Breakfast{Id: int64(breakfast_id), Calories: breakfast_calories}
-// 			ids_to_breakfast[breakfast_id] = &breakfast
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		if _, ok := ids_to_lunches[lunch_id]; !ok {
 
-// 			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
-// 			breakfasts = append(breakfasts, ids_to_breakfast[breakfast_id])
-// 		} else {
-// 			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
-// 		}
+			lunch := Lunch{Id: int64(lunch_id), Calories: lunch_calories}
+			ids_to_lunches[lunch_id] = &lunch
 
-// 	}
+			ids_to_lunches[lunch_id].Food = append(ids_to_lunches[lunch_id].Food, food)
+			lunches = append(lunches, ids_to_lunches[lunch_id])
+		} else {
+			ids_to_lunches[lunch_id].Food = append(ids_to_lunches[lunch_id].Food, food)
+		}
 
-// 	if err = rows.Err(); err != nil {
-// 		return nil, Metadata{}, err
-// 	}
+	}
 
-// 	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
-// 	return breakfasts, metadata, nil
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
 
-// }
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+	return lunches, metadata, nil
 
-// func (m MealsModel) DeleteBreakfast(id int64) error {
-// 	if id < 1 {
-// 		return ErrRcordNotFound
-// 	}
+}
 
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
+func (m MealsModel) DeleteLunch(id int64) error {
+	if id < 1 {
+		return ErrRcordNotFound
+	}
 
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
 
-// 	query := `
-//         DELETE FROM breakfast_food
-//         WHERE breakfast_id = $1`
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-// 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
+	query := `
+        DELETE FROM lunch_food
+        WHERE lunch_id = $1`
 
-// 	_, err = tx.ExecContext(ctx, query, id)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-// 	if err != nil {
-// 		return err
-// 	}
+	_, err = tx.ExecContext(ctx, query, id)
 
-// 	query1 := `
-//         DELETE FROM breakfast
-//         WHERE id = $1`
+	if err != nil {
+		return err
+	}
 
-// 	result, err := tx.ExecContext(ctx, query1, id)
+	query1 := `
+        DELETE FROM lunch
+        WHERE id = $1`
 
-// 	if err != nil {
-// 		return err
-// 	}
+	result, err := tx.ExecContext(ctx, query1, id)
 
-// 	rowsAffected, err := result.RowsAffected()
-// 	if err != nil {
-// 		return err
-// 	}
+	if err != nil {
+		return err
+	}
 
-// 	if rowsAffected == 0 {
-// 		return ErrRcordNotFound
-// 	}
-// 	tx.Commit()
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
 
-// 	return nil
-// }
+	if rowsAffected == 0 {
+		return ErrRcordNotFound
+	}
+	tx.Commit()
+
+	return nil
+}
 
 // ////////////////////////////////////////////////////////////////////////////////////
-
-// func ValidateBreakfast(v *validator.Validator, breakfast Breakfast) {
-// 	v.Check(len(breakfast.Food) > 0, "food", "must send more than 0 foods")
-// 	var ids []int
-// 	for _, food := range breakfast.Food {
-// 		ValidateFood(v, food)
-// 		ids = append(ids, int(food.Id))
-// 	}
-// 	v.Check(validator.Unique(ids), "food", "You munst send not send the same food twice")
-// }
-
-// func (m MealsModel) CreateBreakfast(breakfast *Breakfast) error {
-// 	calories := 0
-// 	for i := range breakfast.Food {
-// 		calories += breakfast.Food[i].Calories
-// 	}
-// 	breakfast.Calories = calories
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-// 	stmt := `INSERT INTO breakfast (calories) VALUES ($1) RETURNING id`
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
-
-// 	err = tx.QueryRowContext(context, stmt, breakfast.Calories).Scan(&breakfast.Id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var bulkInsertValues []interface{}
-// 	bulkInsertStrings := make([]string, 0)
-// 	i := 1
-// 	for _, food := range breakfast.Food {
-// 		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
-// 		bulkInsertValues = append(bulkInsertValues, breakfast.Id, food.Id)
-// 		i += 2
-// 	}
-
-// 	stmt1 := fmt.Sprintf(`INSERT INTO breakfast_food (breakfast_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
-// 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-// 	if err != nil {
-// 		if err.Error() == `pq: insert or update on table "breakfast_food" violates foreign key constraint "breakfast_food_food_id_fkey"` {
-// 			return ErrWrongForeignKey
-// 		}
-// 		return err
-// 	}
-// 	tx.Commit()
-
-// 	return nil
-// }
-
-// func (m *MealsModel) UpdateBreakfast(breakfast *Breakfast) error {
-// 	calories := 0
-// 	for i := range breakfast.Food {
-// 		calories += breakfast.Food[i].Calories
-// 	}
-// 	breakfast.Calories = calories
-
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
-
-// 	stmt2 := `UPDATE breakfast SET calories = $1 WHERE id = $2`
-
-// 	_, err = tx.ExecContext(context, stmt2, breakfast.Calories, breakfast.Id)
-
-// 	if err != nil {
-// 		switch {
-// 		case errors.Is(err, sql.ErrNoRows):
-// 			return ErrRcordNotFound
-// 		default:
-// 			return err
-// 		}
-// 	}
-
-// 	stmt := `DELETE FROM breakfast_food WHERE breakfast_id = $1`
-
-// 	_, err = tx.ExecContext(context, stmt, breakfast.Id)
-
-// 	if err != nil {
-// 		switch {
-// 		case errors.Is(err, sql.ErrNoRows):
-// 			return ErrRcordNotFound
-// 		case err.Error() == `pq: insert or update on table "breakfast_food" violates foreign key constraint "breakfast_food_food_id_fkey"`:
-// 			return ErrWrongForeignKey
-
-// 		default:
-// 			return err
-// 		}
-// 	}
-
-// 	var bulkInsertValues []interface{}
-// 	bulkInsertStrings := make([]string, 0)
-// 	i := 1
-// 	for _, food := range breakfast.Food {
-// 		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
-// 		bulkInsertValues = append(bulkInsertValues, breakfast.Id, food.Id)
-// 		i += 2
-// 	}
-
-// 	stmt1 := fmt.Sprintf(`INSERT INTO breakfast_food (breakfast_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
-// 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	tx.Commit()
-
-// 	return nil
-// }
-
-// func (m *MealsModel) GetAllBreakfastFoodsId(breakfast *Breakfast) error {
-// 	stmt := `SELECT breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
-// 	 INNER JOIN food ON breakfast_food.food_id = food.id
-// 	 WHERE breakfast.id = $1
-// 	 `
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-
-// 	defer cancel()
-
-// 	rows, err := m.DB.QueryContext(context, stmt, breakfast.Id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer rows.Close()
-
-// 	for rows.Next() {
-// 		food := Food{}
-// 		err = rows.Scan(
-// 			&breakfast.Calories,
-// 			&food.Id,
-// 			&food.FoodName,
-// 			&food.Serving,
-// 			&food.Calories,
-// 		)
-
-// 		if err != nil {
-// 			return err
-// 		}
-// 		breakfast.Food = append(breakfast.Food, food)
-// 	}
-
-// 	if err = rows.Err(); err != nil {
-// 		return err
-// 	}
-
-// 	if breakfast.Calories == 0 {
-// 		return ErrRcordNotFound
-// 	}
-
-// 	return nil
-// }
-
-// func (m *MealsModel) GetAllBreakfastFoods(filter Filters) ([]*Breakfast, Metadata, error) {
-// 	stmt := `SELECT count(*) OVER(), breakfast.id, breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
-// 	 INNER JOIN food ON breakfast_food.food_id = food.id
-// 	 LIMIT $1 OFFSET $2
-// 	 `
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-
-// 	defer cancel()
-
-// 	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
-
-// 	if err != nil {
-// 		return nil, Metadata{}, err
-// 	}
-
-// 	defer rows.Close()
-
-// 	ids_to_breakfast := make(map[int]*Breakfast)
-// 	var breakfasts []*Breakfast
-// 	totalRecords := 0
-
-// 	for rows.Next() {
-
-// 		var breakfast_id int
-// 		var breakfast_calories int
-// 		food := Food{}
-// 		err = rows.Scan(
-// 			&totalRecords,
-// 			&breakfast_id,
-// 			&breakfast_calories,
-// 			&food.Id,
-// 			&food.FoodName,
-// 			&food.Serving,
-// 			&food.Calories,
-// 		)
-
-// 		if err != nil {
-// 			return nil, Metadata{}, err
-// 		}
-// 		if _, ok := ids_to_breakfast[breakfast_id]; !ok {
-
-// 			breakfast := Breakfast{Id: int64(breakfast_id), Calories: breakfast_calories}
-// 			ids_to_breakfast[breakfast_id] = &breakfast
-
-// 			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
-// 			breakfasts = append(breakfasts, ids_to_breakfast[breakfast_id])
-// 		} else {
-// 			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
-// 		}
-
-// 	}
-
-// 	if err = rows.Err(); err != nil {
-// 		return nil, Metadata{}, err
-// 	}
-
-// 	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
-// 	return breakfasts, metadata, nil
-
-// }
-
-// func (m MealsModel) DeleteBreakfast(id int64) error {
-// 	if id < 1 {
-// 		return ErrRcordNotFound
-// 	}
-
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-
-// 	query := `
-//         DELETE FROM breakfast_food
-//         WHERE breakfast_id = $1`
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
-
-// 	_, err = tx.ExecContext(ctx, query, id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	query1 := `
-//         DELETE FROM breakfast
-//         WHERE id = $1`
-
-// 	result, err := tx.ExecContext(ctx, query1, id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	rowsAffected, err := result.RowsAffected()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if rowsAffected == 0 {
-// 		return ErrRcordNotFound
-// 	}
-// 	tx.Commit()
-
-// 	return nil
-// }
-
-// ////////////////////////////////////////////////////////////////////////////
-
-// func ValidateBreakfast(v *validator.Validator, breakfast Breakfast) {
-// 	v.Check(len(breakfast.Food) > 0, "food", "must send more than 0 foods")
-// 	var ids []int
-// 	for _, food := range breakfast.Food {
-// 		ValidateFood(v, food)
-// 		ids = append(ids, int(food.Id))
-// 	}
-// 	v.Check(validator.Unique(ids), "food", "You munst send not send the same food twice")
-// }
-
-// func (m MealsModel) CreateBreakfast(breakfast *Breakfast) error {
-// 	calories := 0
-// 	for i := range breakfast.Food {
-// 		calories += breakfast.Food[i].Calories
-// 	}
-// 	breakfast.Calories = calories
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-// 	stmt := `INSERT INTO breakfast (calories) VALUES ($1) RETURNING id`
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
-
-// 	err = tx.QueryRowContext(context, stmt, breakfast.Calories).Scan(&breakfast.Id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var bulkInsertValues []interface{}
-// 	bulkInsertStrings := make([]string, 0)
-// 	i := 1
-// 	for _, food := range breakfast.Food {
-// 		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
-// 		bulkInsertValues = append(bulkInsertValues, breakfast.Id, food.Id)
-// 		i += 2
-// 	}
-
-// 	stmt1 := fmt.Sprintf(`INSERT INTO breakfast_food (breakfast_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
-// 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-// 	if err != nil {
-// 		if err.Error() == `pq: insert or update on table "breakfast_food" violates foreign key constraint "breakfast_food_food_id_fkey"` {
-// 			return ErrWrongForeignKey
-// 		}
-// 		return err
-// 	}
-// 	tx.Commit()
-
-// 	return nil
-// }
-
-// func (m *MealsModel) UpdateBreakfast(breakfast *Breakfast) error {
-// 	calories := 0
-// 	for i := range breakfast.Food {
-// 		calories += breakfast.Food[i].Calories
-// 	}
-// 	breakfast.Calories = calories
-
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
-
-// 	stmt2 := `UPDATE breakfast SET calories = $1 WHERE id = $2`
-
-// 	_, err = tx.ExecContext(context, stmt2, breakfast.Calories, breakfast.Id)
-
-// 	if err != nil {
-// 		switch {
-// 		case errors.Is(err, sql.ErrNoRows):
-// 			return ErrRcordNotFound
-// 		default:
-// 			return err
-// 		}
-// 	}
-
-// 	stmt := `DELETE FROM breakfast_food WHERE breakfast_id = $1`
-
-// 	_, err = tx.ExecContext(context, stmt, breakfast.Id)
-
-// 	if err != nil {
-// 		switch {
-// 		case errors.Is(err, sql.ErrNoRows):
-// 			return ErrRcordNotFound
-// 		case err.Error() == `pq: insert or update on table "breakfast_food" violates foreign key constraint "breakfast_food_food_id_fkey"`:
-// 			return ErrWrongForeignKey
-
-// 		default:
-// 			return err
-// 		}
-// 	}
-
-// 	var bulkInsertValues []interface{}
-// 	bulkInsertStrings := make([]string, 0)
-// 	i := 1
-// 	for _, food := range breakfast.Food {
-// 		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
-// 		bulkInsertValues = append(bulkInsertValues, breakfast.Id, food.Id)
-// 		i += 2
-// 	}
-
-// 	stmt1 := fmt.Sprintf(`INSERT INTO breakfast_food (breakfast_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
-// 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	tx.Commit()
-
-// 	return nil
-// }
-
-// func (m *MealsModel) GetAllBreakfastFoodsId(breakfast *Breakfast) error {
-// 	stmt := `SELECT breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
-// 	 INNER JOIN food ON breakfast_food.food_id = food.id
-// 	 WHERE breakfast.id = $1
-// 	 `
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-
-// 	defer cancel()
-
-// 	rows, err := m.DB.QueryContext(context, stmt, breakfast.Id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer rows.Close()
-
-// 	for rows.Next() {
-// 		food := Food{}
-// 		err = rows.Scan(
-// 			&breakfast.Calories,
-// 			&food.Id,
-// 			&food.FoodName,
-// 			&food.Serving,
-// 			&food.Calories,
-// 		)
-
-// 		if err != nil {
-// 			return err
-// 		}
-// 		breakfast.Food = append(breakfast.Food, food)
-// 	}
-
-// 	if err = rows.Err(); err != nil {
-// 		return err
-// 	}
-
-// 	if breakfast.Calories == 0 {
-// 		return ErrRcordNotFound
-// 	}
-
-// 	return nil
-// }
-
-// func (m *MealsModel) GetAllBreakfastFoods(filter Filters) ([]*Breakfast, Metadata, error) {
-// 	stmt := `SELECT count(*) OVER(), breakfast.id, breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
-// 	 INNER JOIN food ON breakfast_food.food_id = food.id
-// 	 LIMIT $1 OFFSET $2
-// 	 `
-
-// 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-
-// 	defer cancel()
-
-// 	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
-
-// 	if err != nil {
-// 		return nil, Metadata{}, err
-// 	}
-
-// 	defer rows.Close()
-
-// 	ids_to_breakfast := make(map[int]*Breakfast)
-// 	var breakfasts []*Breakfast
-// 	totalRecords := 0
-
-// 	for rows.Next() {
-
-// 		var breakfast_id int
-// 		var breakfast_calories int
-// 		food := Food{}
-// 		err = rows.Scan(
-// 			&totalRecords,
-// 			&breakfast_id,
-// 			&breakfast_calories,
-// 			&food.Id,
-// 			&food.FoodName,
-// 			&food.Serving,
-// 			&food.Calories,
-// 		)
-
-// 		if err != nil {
-// 			return nil, Metadata{}, err
-// 		}
-// 		if _, ok := ids_to_breakfast[breakfast_id]; !ok {
-
-// 			breakfast := Breakfast{Id: int64(breakfast_id), Calories: breakfast_calories}
-// 			ids_to_breakfast[breakfast_id] = &breakfast
-
-// 			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
-// 			breakfasts = append(breakfasts, ids_to_breakfast[breakfast_id])
-// 		} else {
-// 			ids_to_breakfast[breakfast_id].Food = append(ids_to_breakfast[breakfast_id].Food, food)
-// 		}
-
-// 	}
-
-// 	if err = rows.Err(); err != nil {
-// 		return nil, Metadata{}, err
-// 	}
-
-// 	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
-// 	return breakfasts, metadata, nil
-
-// }
-
-// func (m MealsModel) DeleteBreakfast(id int64) error {
-// 	if id < 1 {
-// 		return ErrRcordNotFound
-// 	}
-
-// 	tx, err := m.DB.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer func() {
-// 		if err != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-
-// 	query := `
-//         DELETE FROM breakfast_food
-//         WHERE breakfast_id = $1`
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 	defer cancel()
-
-// 	_, err = tx.ExecContext(ctx, query, id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	query1 := `
-//         DELETE FROM breakfast
-//         WHERE id = $1`
-
-// 	result, err := tx.ExecContext(ctx, query1, id)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	rowsAffected, err := result.RowsAffected()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if rowsAffected == 0 {
-// 		return ErrRcordNotFound
-// 	}
-// 	tx.Commit()
-
-// 	return nil
-// }
+func ValidatePmSnack(v *validator.Validator, PmSnack PmSnack) {
+	v.Check(len(PmSnack.Food) > 0, "food", "must send more than 0 foods")
+	var ids []int
+	for _, food := range PmSnack.Food {
+		ValidateFood(v, food)
+		ids = append(ids, int(food.Id))
+	}
+	v.Check(validator.Unique(ids), "food", "You must not send the same food twice")
+}
+
+func (m MealsModel) CreatePmSnack(PmSnack *PmSnack) error {
+	calories := 0
+	for i := range PmSnack.Food {
+		calories += PmSnack.Food[i].Calories
+	}
+	PmSnack.Calories = calories
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	stmt := `INSERT INTO pm_snack (calories) VALUES ($1) RETURNING id`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err = tx.QueryRowContext(context, stmt, PmSnack.Calories).Scan(&PmSnack.Id)
+
+	if err != nil {
+		return err
+	}
+
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, food := range PmSnack.Food {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, PmSnack.Id, food.Id)
+		i += 2
+	}
+
+	stmt1 := fmt.Sprintf(`INSERT INTO pm_snack_food (pm_snack_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		if err.Error() == `pq: insert or update on table "pm_snack_food" violates foreign key constraint "pm_snack_food_food_id_fkey"` {
+			return ErrWrongForeignKey
+		}
+		return err
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func (m *MealsModel) UpdatePmSnack(pm_snack *PmSnack) error {
+	calories := 0
+	for i := range pm_snack.Food {
+		calories += pm_snack.Food[i].Calories
+	}
+	pm_snack.Calories = calories
+
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	stmt2 := `UPDATE pm_snack SET calories = $1 WHERE id = $2`
+
+	_, err = tx.ExecContext(context, stmt2, pm_snack.Calories, pm_snack.Id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	stmt := `DELETE FROM pm_snack_food WHERE pm_snack_id = $1`
+
+	_, err = tx.ExecContext(context, stmt, pm_snack.Id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, food := range pm_snack.Food {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, pm_snack.Id, food.Id)
+		i += 2
+	}
+
+	stmt1 := fmt.Sprintf(`INSERT INTO pm_snack_food (pm_snack_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		switch {
+		case err.Error() == `pq: insert or update on table "pm_snack_food" violates foreign key constraint "pm_snack_food_food_id_fkey"`:
+			return ErrWrongForeignKey
+		default:
+			return err
+		}
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func (m *MealsModel) GetAllPmSnackID(pm_snack *PmSnack) error {
+	stmt := `SELECT pm_snack.calories,food.id,food_name,food.serving,food.calories FROM pm_snack INNER JOIN pm_snack_food ON pm_snack.id = pm_snack_food.pm_snack_id
+	 INNER JOIN food ON pm_snack_food.food_id = food.id
+	 WHERE pm_snack.id = $1
+	 `
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, pm_snack.Id)
+
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		food := Food{}
+		err = rows.Scan(
+			&pm_snack.Calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
+
+		if err != nil {
+			return err
+		}
+		pm_snack.Food = append(pm_snack.Food, food)
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	if pm_snack.Calories == 0 {
+		return ErrRcordNotFound
+	}
+
+	return nil
+}
+
+func (m *MealsModel) GetAllPmSnacks(filter Filters) ([]*PmSnack, Metadata, error) {
+	stmt := `SELECT count(*) OVER(), pm_snack.id, pm_snack.calories,food.id,food_name,food.serving,food.calories FROM pm_snack INNER JOIN pm_snack_food ON pm_snack.id = pm_snack_food.pm_snack_id
+	 INNER JOIN food ON pm_snack_food.food_id = food.id
+	 LIMIT $1 OFFSET $2
+	 `
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	ids_to_PmSnacks := make(map[int]*PmSnack)
+	var pm_snacks []*PmSnack
+	totalRecords := 0
+
+	for rows.Next() {
+
+		var pm_snack_id int
+		var pm_snack_calories int
+		food := Food{}
+		err = rows.Scan(
+			&totalRecords,
+			&pm_snack_id,
+			&pm_snack_calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
+
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		if _, ok := ids_to_PmSnacks[pm_snack_id]; !ok {
+
+			pm_snack := PmSnack{Id: int64(pm_snack_id), Calories: pm_snack_calories}
+			ids_to_PmSnacks[pm_snack_id] = &pm_snack
+
+			ids_to_PmSnacks[pm_snack_id].Food = append(ids_to_PmSnacks[pm_snack_id].Food, food)
+			pm_snacks = append(pm_snacks, ids_to_PmSnacks[pm_snack_id])
+		} else {
+			ids_to_PmSnacks[pm_snack_id].Food = append(ids_to_PmSnacks[pm_snack_id].Food, food)
+		}
+
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+	return pm_snacks, metadata, nil
+
+}
+
+func (m MealsModel) DeletePmSnack(id int64) error {
+	if id < 1 {
+		return ErrRcordNotFound
+	}
+
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := `
+        DELETE FROM pm_snack_food 
+        WHERE pm_snack_id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err = tx.ExecContext(ctx, query, id)
+
+	if err != nil {
+		return err
+	}
+
+	query1 := `
+        DELETE FROM pm_snack
+        WHERE id = $1`
+
+	result, err := tx.ExecContext(ctx, query1, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRcordNotFound
+	}
+	tx.Commit()
+
+	return nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+func ValidateDinner(v *validator.Validator, Dinner Dinner) {
+	v.Check(len(Dinner.Food) > 0, "food", "must send more than 0 foods")
+	var ids []int
+	for _, food := range Dinner.Food {
+		ValidateFood(v, food)
+		ids = append(ids, int(food.Id))
+	}
+	v.Check(validator.Unique(ids), "food", "You must not send the same food twice")
+}
+
+func (m MealsModel) CreateDinner(Dinner *Dinner) error {
+	calories := 0
+	for i := range Dinner.Food {
+		calories += Dinner.Food[i].Calories
+	}
+	Dinner.Calories = calories
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	stmt := `INSERT INTO dinner (calories) VALUES ($1) RETURNING id`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err = tx.QueryRowContext(context, stmt, Dinner.Calories).Scan(&Dinner.Id)
+
+	if err != nil {
+		return err
+	}
+
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, food := range Dinner.Food {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, Dinner.Id, food.Id)
+		i += 2
+	}
+
+	stmt1 := fmt.Sprintf(`INSERT INTO dinner_food (dinner_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	fmt.Println(err.Error() == `pq: insert or update on table "dinner_food" violates foreign key constraint "dinner_food_food_id_fkey"`)
+	if err != nil {
+		if err.Error() == `pq: insert or update on table "dinner_food" violates foreign key constraint "dinner_food_food_id_fkey"` {
+			return ErrWrongForeignKey
+		}
+		return err
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func (m *MealsModel) UpdateDinner(dinner *Dinner) error {
+	calories := 0
+	for i := range dinner.Food {
+		calories += dinner.Food[i].Calories
+	}
+	dinner.Calories = calories
+
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	stmt2 := `UPDATE dinner SET calories = $1 WHERE id = $2`
+
+	_, err = tx.ExecContext(context, stmt2, dinner.Calories, dinner.Id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	stmt := `DELETE FROM dinner_food WHERE dinner_id = $1`
+
+	_, err = tx.ExecContext(context, stmt, dinner.Id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, food := range dinner.Food {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, dinner.Id, food.Id)
+		i += 2
+	}
+
+	stmt1 := fmt.Sprintf(`INSERT INTO dinner_food (dinner_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		switch {
+		case err.Error() == `pq: insert or update on table "dinner_food" violates foreign key constraint "dinner_food_food_id_fkey"`:
+			return ErrWrongForeignKey
+		default:
+			return err
+		}
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func (m *MealsModel) GetAllDinnerID(dinner *Dinner) error {
+	stmt := `SELECT dinner.calories,food.id,food_name,food.serving,food.calories FROM dinner INNER JOIN dinner_food ON dinner.id = dinner_food.dinner_id
+	 INNER JOIN food ON dinner_food.food_id = food.id
+	 WHERE dinner.id = $1
+	 `
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, dinner.Id)
+
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		food := Food{}
+		err = rows.Scan(
+			&dinner.Calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
+
+		if err != nil {
+			return err
+		}
+		dinner.Food = append(dinner.Food, food)
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	if dinner.Calories == 0 {
+		return ErrRcordNotFound
+	}
+
+	return nil
+}
+
+func (m *MealsModel) GetAllDinners(filter Filters) ([]*Dinner, Metadata, error) {
+	stmt := `SELECT count(*) OVER(), dinner.id, dinner.calories,food.id,food_name,food.serving,food.calories FROM dinner INNER JOIN dinner_food ON dinner.id = dinner_food.dinner_id
+	 INNER JOIN food ON dinner_food.food_id = food.id
+	 LIMIT $1 OFFSET $2
+	 `
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	ids_to_Dinners := make(map[int]*Dinner)
+	var dinners []*Dinner
+	totalRecords := 0
+
+	for rows.Next() {
+
+		var dinner_id int
+		var dinner_calories int
+		food := Food{}
+		err = rows.Scan(
+			&totalRecords,
+			&dinner_id,
+			&dinner_calories,
+			&food.Id,
+			&food.FoodName,
+			&food.Serving,
+			&food.Calories,
+		)
+
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		if _, ok := ids_to_Dinners[dinner_id]; !ok {
+
+			dinner := Dinner{Id: int64(dinner_id), Calories: dinner_calories}
+			ids_to_Dinners[dinner_id] = &dinner
+
+			ids_to_Dinners[dinner_id].Food = append(ids_to_Dinners[dinner_id].Food, food)
+			dinners = append(dinners, ids_to_Dinners[dinner_id])
+		} else {
+			ids_to_Dinners[dinner_id].Food = append(ids_to_Dinners[dinner_id].Food, food)
+		}
+
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+	return dinners, metadata, nil
+
+}
+
+func (m MealsModel) DeleteDinner(id int64) error {
+	if id < 1 {
+		return ErrRcordNotFound
+	}
+
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := `
+        DELETE FROM dinner_food 
+        WHERE dinner_id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err = tx.ExecContext(ctx, query, id)
+
+	if err != nil {
+		return err
+	}
+
+	query1 := `
+        DELETE FROM dinner
+        WHERE id = $1`
+
+	result, err := tx.ExecContext(ctx, query1, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRcordNotFound
+	}
+	tx.Commit()
+
+	return nil
+}
