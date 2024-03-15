@@ -59,6 +59,8 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/meals/dinner/get", app.listDinners)
 	router.HandlerFunc(http.MethodDelete, "/v1/meals/dinner/delete/:id", app.requireAdmin(app.deleteDinnerHandler))
 
+	router.HandlerFunc(http.MethodPost, "/v1/plans/day/add", app.requireCoachOrAdmin(app.addDay))
+
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 
 	return app.metrics(app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router)))))
