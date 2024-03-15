@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS day;
+
+DROP TABLE IF EXISTS plan;
+
+
+DROP TABLE IF EXISTS user_card;
