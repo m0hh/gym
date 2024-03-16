@@ -60,6 +60,8 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodDelete, "/v1/meals/dinner/delete/:id", app.requireAdmin(app.deleteDinnerHandler))
 
 	router.HandlerFunc(http.MethodPost, "/v1/plans/day/add", app.requireCoachOrAdmin(app.addDay))
+	router.HandlerFunc(http.MethodGet, "/v1/plans/day/get/:id", app.requireCoachOrAdmin(app.retrieveDay))
+	router.HandlerFunc(http.MethodGet, "/v1/plans/day/get", app.requireCoachOrAdmin(app.listDays))
 
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 
