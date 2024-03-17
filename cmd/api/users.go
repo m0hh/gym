@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 )
 
 func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
+	coach := app.contextGetUser(r)
 	var input struct {
 		Name     string `json:"name"`
 		Email    string `json:"email"`
@@ -60,13 +62,25 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	app.background(func() {
+
+		usercard := &data.UserCard{
+			Owner: user.Id,
+			Coach: coach.Id,
+		}
+		err = app.models.Users.CreateUserCardRegistration(*usercard)
+		if err != nil {
+			app.logger.PrintError(err, nil)
+		}
+
 		data := map[string]interface{}{
 			"activationToken": token.Plaintext,
 			"userID":          user.Id,
 		}
 		err = app.mailer.Send(user.Email, "user_welcome.html", data)
 		if err != nil {
-			app.logger.PrintError(err, nil)
+			prop := make(map[string]string)
+			prop["User Registration"] = fmt.Sprintf("User %d created but failed to create his card", user.Id)
+			app.logger.PrintError(err, prop)
 		}
 	})
 

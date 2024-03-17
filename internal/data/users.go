@@ -226,3 +226,30 @@ func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error)
 
 	return &user, nil
 }
+
+type UserCard struct {
+	Id          int64 `json:"id"`
+	Owner       int64 `json:"owner"`
+	Coach       int64 `json:"coach"`
+	CurrentPlan int64 `json:"current_plan"`
+}
+
+func (m UserModel) CreateUserCardRegistration(usercard UserCard) error {
+	stmt := ` INSERT INTO user_card (owner, coach) VALUES ($1,$2) RETURNING id`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err := m.DB.QueryRowContext(ctx, stmt, usercard.Owner, usercard.Coach).Scan(&usercard.Id)
+	if err != nil {
+		switch {
+		case err.Error() == `pq: duplicate key value violates unique constraint "user_card_owner_key"`:
+			return ErrWrongForeignKey
+		default:
+			return err
+		}
+	}
+
+	return nil
+
+}

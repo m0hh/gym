@@ -15,7 +15,7 @@ func (app *application) routes() http.Handler {
 
 	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.healthcheckHandler)
 
-	router.HandlerFunc(http.MethodPost, "/v1/users", app.registerUserHandler)
+	router.HandlerFunc(http.MethodPost, "/v1/users", app.requireCoach(app.registerUserHandler))
 	router.HandlerFunc(http.MethodPut, "/v1/users/activated", app.activateUserHandler)
 	router.HandlerFunc(http.MethodPut, "/v1/users/password", app.updateUserPasswordHandler)
 
@@ -62,6 +62,9 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodPost, "/v1/plans/day/add", app.requireCoachOrAdmin(app.addDay))
 	router.HandlerFunc(http.MethodGet, "/v1/plans/day/get/:id", app.requireCoachOrAdmin(app.retrieveDay))
 	router.HandlerFunc(http.MethodGet, "/v1/plans/day/get", app.requireCoachOrAdmin(app.listDays))
+
+	router.HandlerFunc(http.MethodPost, "/v1/plans/planmeal/add", app.requireCoachOrAdmin(app.addPlanMeal))
+	router.HandlerFunc(http.MethodGet, "/v1/plans/planmeal/get", app.requireCoachOrAdmin(app.listPlans))
 
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 

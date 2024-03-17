@@ -187,6 +187,23 @@ func (app *application) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return app.requireActivatedUser(fn)
 }
 
+func (app *application) requireCoach(next http.HandlerFunc) http.HandlerFunc {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		user := app.contextGetUser(r)
+
+		role := user.Role
+
+		if role != data.CoachRole {
+			app.notPermittedResponse(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+
+	return app.requireActivatedUser(fn)
+}
+
 func (app *application) enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Origin")

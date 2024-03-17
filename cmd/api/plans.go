@@ -103,3 +103,78 @@ func (app *application) listDays(w http.ResponseWriter, r *http.Request) {
 
 	app.writeJSON(w, http.StatusOK, envelope{"days": days, "metadata": metadata}, nil)
 }
+
+func (app *application) addPlanMeal(w http.ResponseWriter, r *http.Request) {
+
+	var input_plan struct {
+		FirstDay   int64 `json:"first_day"`
+		SecondDay  int64 `json:"second_day"`
+		ThirdDay   int64 `json:"third_day"`
+		FourthDay  int64 `json:"fourth_day"`
+		FifthDay   int64 `json:"fifth_day"`
+		SixthDay   int64 `json:"sixth_day"`
+		SeventhDay int64 `json:"seventh_day"`
+	}
+
+	err := app.ReadJSON(w, r, &input_plan)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	user := app.contextGetUser(r)
+
+	plan := &data.PlanMeal{
+		FirstDay:   input_plan.FirstDay,
+		SecondDay:  input_plan.SecondDay,
+		ThirdDay:   input_plan.ThirdDay,
+		FourthDay:  input_plan.FourthDay,
+		FifthDay:   input_plan.FifthDay,
+		SixthDay:   input_plan.SixthDay,
+		SeventhDay: input_plan.SeventhDay,
+		Coach:      user.Id,
+	}
+	v := validator.New()
+
+	if data.ValidatePlanMeal(v, *plan); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Plans.InsertPlanMeal(plan)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+	app.writeJSON(w, 200, envelope{"plan": plan}, nil)
+}
+
+func (app *application) listPlans(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+	var input struct {
+		data.Filters
+	}
+
+	v := validator.New()
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	days, metadata, err := app.models.Plans.GetAllPlansCoach(*user, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"plans": days, "metadata": metadata}, nil)
+}

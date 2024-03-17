@@ -180,3 +180,138 @@ func (m PlanModel) GetAllCoachDays(user User, filter Filters) ([]*CoachDays, Met
 	return days, metadata, nil
 
 }
+
+type PlanMeal struct {
+	Id         int64 `json:"id"`
+	FirstDay   int64 `json:"first_day"`
+	SecondDay  int64 `json:"second_day"`
+	ThirdDay   int64 `json:"third_day"`
+	FourthDay  int64 `json:"fourth_day"`
+	FifthDay   int64 `json:"fifth_day"`
+	SixthDay   int64 `json:"sixth_day"`
+	SeventhDay int64 `json:"seventh_day"`
+	Coach      int64 `json:"coach"`
+}
+
+type PlanMealCoachList struct {
+	Id         int64  `json:"id"`
+	FirstDay   string `json:"first_day"`
+	SecondDay  string `json:"second_day"`
+	ThirdDay   string `json:"third_day"`
+	FourthDay  string `json:"fourth_day"`
+	FifthDay   string `json:"fifth_day"`
+	SixthDay   string `json:"sixth_day"`
+	SeventhDay string `json:"seventh_day"`
+}
+
+type PlanMealFull struct {
+	Id         int64   `json:"id"`
+	FirstDay   DayFull `json:"first_day"`
+	SecondDay  DayFull `json:"second_day"`
+	ThirdDay   DayFull `json:"third_day"`
+	FourthDay  DayFull `json:"fourth_day"`
+	FifthDay   DayFull `json:"fifth_day"`
+	SixthDay   DayFull `json:"sixth_day"`
+	SeventhDay DayFull `json:"seventh_day"`
+	Coach      User    `json:"coach"`
+}
+
+func ValidatePlanMeal(v *validator.Validator, plan PlanMeal) {
+	v.Check(plan.FirstDay > 0, "first_day", "must provide a valid integer")
+	v.Check(plan.SecondDay > 0, "second_day", "must provide a valid integer")
+	v.Check(plan.ThirdDay > 0, "third_day", "must provide a valid integer")
+	v.Check(plan.FourthDay > 0, "fourth_day", "must provide a valid integer")
+	v.Check(plan.FifthDay > 0, "fifth_day", "must provide a valid integer")
+	v.Check(plan.SixthDay > 0, "sixth_day", "must provide a valid integer")
+	v.Check(plan.SeventhDay > 0, "seventh_day", "must provide a valid integer")
+	v.Check(plan.Coach > 0, "coach", "must provide a valid integer")
+}
+
+func (m PlanModel) InsertPlanMeal(plan_meal *PlanMeal) error {
+	stmt := ` INSERT INTO plan_meal (first_day, second_day, third_day, fourth_day, fifth_day, sixth_day,seventh_day, coach) 
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+	RETURNING id`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	args := []interface{}{plan_meal.FirstDay, plan_meal.SecondDay, plan_meal.ThirdDay,
+		plan_meal.FourthDay, plan_meal.FifthDay, plan_meal.SixthDay, plan_meal.SeventhDay, plan_meal.Coach}
+
+	err := m.DB.QueryRowContext(context, stmt, args...).Scan(&plan_meal.Id)
+
+	if err != nil {
+		switch {
+		case strings.HasPrefix(err.Error(), `pq: insert or update on table "plan_meal" violates foreign key constraint`):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m PlanModel) GetAllPlansCoach(user User, filter Filters) ([]*PlanMealCoachList, Metadata, error) {
+	stmt := `
+	SELECT 
+	count(*) OVER(),
+    pm.id ,
+    d1.name ,
+    d2.name ,
+    d3.name ,
+    d4.name ,
+    d5.name ,
+    d6.name ,
+    d7.name 
+	FROM 
+		plan_meal AS pm
+	JOIN 
+		day AS d1 ON pm.first_day = d1.id
+	JOIN 
+		day AS d2 ON pm.second_day = d2.id
+	JOIN 
+		day AS d3 ON pm.third_day = d3.id
+	JOIN 
+		day AS d4 ON pm.fourth_day = d4.id
+	JOIN 
+		day AS d5 ON pm.fifth_day = d5.id
+	JOIN 
+		day AS d6 ON pm.sixth_day = d6.id
+	JOIN 
+		day AS d7 ON pm.seventh_day = d7.id
+	WHERE pm.coach = $1
+	LIMIT $2 OFFSET $3
+	`
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, user.Id, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	var plans []*PlanMealCoachList
+
+	totalRecords := 0
+	for rows.Next() {
+		var plan PlanMealCoachList
+		err = rows.Scan(&totalRecords, &plan.Id, &plan.FirstDay, &plan.SecondDay, &plan.ThirdDay, &plan.FourthDay, &plan.FifthDay, &plan.SixthDay, &plan.SeventhDay)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		plans = append(plans, &plan)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+
+	return plans, metadata, nil
+
+}
