@@ -315,3 +315,38 @@ func (m PlanModel) GetAllPlansCoach(user User, filter Filters) ([]*PlanMealCoach
 	return plans, metadata, nil
 
 }
+
+func (m PlanModel) AddPlantoUser(coach User, user_card *UserCard, u UserModel) error {
+	plan_id := user_card.CurrentPlan
+	err := u.RetrieveUserCard(user_card)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrRcordNotFound):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	if user_card.Coach != coach.Id {
+		return ErrWrongCredentials
+	}
+
+	stmt := `UPDATE user_card SET current_plan = $1 WHERE owner = $2`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err = m.DB.ExecContext(context, stmt, plan_id, user_card.Owner)
+
+	if err != nil {
+		switch {
+		case strings.HasPrefix(err.Error(), `pq: insert or update on table "user_card" violates foreign key constraint`):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	return nil
+}

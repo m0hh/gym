@@ -6,10 +6,11 @@ import (
 )
 
 var (
-	ErrRcordNotFound   = errors.New("record not found")
-	ErrEditConflict    = errors.New("edit conflict")
-	ErrUniqueFood      = errors.New("unique food with serving failed")
-	ErrWrongForeignKey = errors.New("wrong Foreign key")
+	ErrRcordNotFound    = errors.New("record not found")
+	ErrEditConflict     = errors.New("edit conflict")
+	ErrUniqueFood       = errors.New("unique food with serving failed")
+	ErrWrongForeignKey  = errors.New("wrong Foreign key")
+	ErrWrongCredentials = errors.New("wrong credentials")
 )
 
 type Models struct {

@@ -253,3 +253,78 @@ func (m UserModel) CreateUserCardRegistration(usercard UserCard) error {
 	return nil
 
 }
+
+func (m UserModel) ListCoachUsers(user User, filter Filters) ([]*User, Metadata, error) {
+	stmt := `
+	SELECT 
+	count(*) OVER(), users.id, users.name, users.email from user_card INNER JOIN users ON 
+	user_card.owner = users.id
+	WHERE user_card.coach = $1
+	LIMIT $2 OFFSET $3
+	`
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, user.Id, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	var users []*User
+
+	totalRecords := 0
+	for rows.Next() {
+		var user User
+		err = rows.Scan(&totalRecords, &user.Id, &user.Name, &user.Email)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		users = append(users, &user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+
+	return users, metadata, nil
+}
+
+func (m UserModel) RetrieveUserCard(user_card *UserCard) error {
+	stmt := `SELECT  id, coach, current_plan FROM user_card WHERE owner = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var u_card_coach interface{}
+	var u_card_plan interface{}
+
+	err := m.DB.QueryRowContext(ctx, stmt, user_card.Owner).Scan(&user_card.Id, &u_card_coach, &u_card_plan)
+
+	var Id int64
+	Id, ok := u_card_coach.(int64)
+	if ok {
+		user_card.Coach = Id
+
+	}
+
+	Id, ok = u_card_plan.(int64)
+	if ok {
+		user_card.CurrentPlan = Id
+	}
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	return nil
+}

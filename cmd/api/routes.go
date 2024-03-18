@@ -18,6 +18,7 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodPost, "/v1/users", app.requireCoach(app.registerUserHandler))
 	router.HandlerFunc(http.MethodPut, "/v1/users/activated", app.activateUserHandler)
 	router.HandlerFunc(http.MethodPut, "/v1/users/password", app.updateUserPasswordHandler)
+	router.HandlerFunc(http.MethodGet, "/v1/users/coach/get", app.requireCoach(app.listCoachusers))
 
 	router.HandlerFunc(http.MethodPost, "/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 	router.HandlerFunc(http.MethodPost, "/v1/tokens/activation", app.createActivationTokenHandler)
@@ -65,6 +66,7 @@ func (app *application) routes() http.Handler {
 
 	router.HandlerFunc(http.MethodPost, "/v1/plans/planmeal/add", app.requireCoachOrAdmin(app.addPlanMeal))
 	router.HandlerFunc(http.MethodGet, "/v1/plans/planmeal/get", app.requireCoachOrAdmin(app.listPlans))
+	router.HandlerFunc(http.MethodPut, "/v1/plans/planmeal/user/add", app.requireCoach(app.addPlantoUser))
 
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 

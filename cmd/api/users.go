@@ -206,3 +206,27 @@ func (app *application) updateUserPasswordHandler(w http.ResponseWriter, r *http
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) listCoachusers(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+	var input struct {
+		data.Filters
+	}
+
+	v := validator.New()
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	users, metadata, err := app.models.Users.ListCoachUsers(*user, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"users": users, "metadata": metadata}, nil)
+}
