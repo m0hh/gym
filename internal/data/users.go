@@ -329,3 +329,157 @@ func (m UserModel) RetrieveUserCard(user_card *UserCard) error {
 
 	return nil
 }
+
+func (m UserModel) UpdateWeightUserCard(weight int, owner int64) error {
+	stmt := `UPDATE user_card SET current_weight = $1 WHERE owner = $2`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err := m.DB.ExecContext(ctx, stmt, weight, owner)
+
+	if err != nil {
+
+		return err
+	}
+
+	return nil
+}
+
+type UserHistory struct {
+	Id              int64             `json:"id"`
+	Plan            PlanMealCoachList `json:"plan"`
+	From            time.Time         `json:"form"`
+	To              time.Time         `json:"to"`
+	StartingWeight  int               `json:"starting_weight"`
+	FinishingWeight int               `json:"finishing_weight"`
+	Current         bool              `json:"current"`
+}
+
+func (m UserModel) ListHistory(user_id int64, filter Filters) ([]*UserHistory, Metadata, error) {
+	stmt := `SELECT 
+    count(*) OVER(),
+    hist.id,
+    hist.from_date,
+    hist.to_date,
+    hist.weight_start,
+    hist.weight_finish,
+    hist.is_now,
+    d1.name ,
+    d2.name ,
+    d3.name ,
+    d4.name ,
+    d5.name ,
+    d6.name ,
+    d7.name 
+	FROM 
+		user_history AS hist
+	JOIN
+	
+		plan_meal AS pm ON hist.plan_done = pm.id
+	JOIN 
+		day AS d1 ON pm.first_day = d1.id
+	JOIN 
+		day AS d2 ON pm.second_day = d2.id
+	JOIN 
+		day AS d3 ON pm.third_day = d3.id
+	JOIN 
+		day AS d4 ON pm.fourth_day = d4.id
+	JOIN 
+		day AS d5 ON pm.fifth_day = d5.id
+	JOIN 
+		day AS d6 ON pm.sixth_day = d6.id
+	JOIN 
+		day AS d7 ON pm.seventh_day = d7.id
+	WHERE hist.owner = $1
+	LIMIT $2 OFFSET $3 `
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, user_id, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	var histories []*UserHistory
+
+	totalRecords := 0
+	for rows.Next() {
+		var history UserHistory
+		var to_time interface{}
+
+		err = rows.Scan(
+			&totalRecords,
+			&history.Id,
+			&history.From,
+			&to_time,
+			&history.StartingWeight,
+			&history.FinishingWeight,
+			&history.Current,
+			&history.Plan.FirstDay,
+			&history.Plan.SecondDay,
+			&history.Plan.ThirdDay,
+			&history.Plan.FourthDay,
+			&history.Plan.FifthDay,
+			&history.Plan.SixthDay,
+			&history.Plan.SeventhDay,
+		)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		var Time time.Time
+		Time, ok := to_time.(time.Time)
+		if ok {
+			history.To = Time
+
+		}
+		histories = append(histories, &history)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+
+	return histories, metadata, nil
+}
+
+func (m UserModel) CoachPermitted(user_id, coach_id int64) (bool, error) {
+	stmt := `SELECT users.id FROM user_card JOIN users ON user_card.owner = users.id WHERE user_card.coach = $1`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, coach_id)
+
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var ids []int64
+
+	for rows.Next() {
+		var id int64
+		err = rows.Scan(&id)
+		if err != nil {
+			return false, err
+		}
+		ids = append(ids, id)
+
+	}
+
+	for idx := range ids {
+		if ids[idx] == user_id {
+			return true, nil
+		}
+	}
+
+	return false, nil
+
+}

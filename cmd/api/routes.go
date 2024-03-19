@@ -19,6 +19,10 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodPut, "/v1/users/activated", app.activateUserHandler)
 	router.HandlerFunc(http.MethodPut, "/v1/users/password", app.updateUserPasswordHandler)
 	router.HandlerFunc(http.MethodGet, "/v1/users/coach/get", app.requireCoach(app.listCoachusers))
+	router.HandlerFunc(http.MethodPost, "/v1/users/card/weight", app.requireTrainee(app.updateUserWeight))
+	router.HandlerFunc(http.MethodGet, "/v1/users/card/get", app.requireTrainee(app.retrieveUserCard))
+	router.HandlerFunc(http.MethodGet, "/v1/users/histories/list", app.requireTrainee(app.listuserHistory))
+	router.HandlerFunc(http.MethodGet, "/v1/users/coach/histories/list/:id", app.requireCoach(app.listuserHistoryCoach))
 
 	router.HandlerFunc(http.MethodPost, "/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 	router.HandlerFunc(http.MethodPost, "/v1/tokens/activation", app.createActivationTokenHandler)

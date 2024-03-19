@@ -14,3 +14,4 @@ updates should return err record not found meals
 make add day coach only add plan meal
 
 make user updates his wieght 
+retrieve user history

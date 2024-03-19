@@ -10,6 +10,8 @@ import (
 	"github.com/m0hh/smart-logitics/internal/validator"
 )
 
+var AdminEmail = "mohamed.ehab.desoky.@gmail.com"
+
 func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
 	coach := app.contextGetUser(r)
 	var input struct {
@@ -69,7 +71,10 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		}
 		err = app.models.Users.CreateUserCardRegistration(*usercard)
 		if err != nil {
-			app.logger.PrintError(err, nil)
+			prop := make(map[string]string)
+			prop["User Registration"] = fmt.Sprintf("User %d created but failed to create his card", user.Id)
+			app.logger.PrintError(err, prop)
+			app.mailer.Send(AdminEmail, "user_card_faliure.html", user.Id)
 		}
 
 		data := map[string]interface{}{
@@ -79,7 +84,7 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		err = app.mailer.Send(user.Email, "user_welcome.html", data)
 		if err != nil {
 			prop := make(map[string]string)
-			prop["User Registration"] = fmt.Sprintf("User %d created but failed to create his card", user.Id)
+			prop["User Registration"] = fmt.Sprintf("User %d colud not send welcome email", user.Id)
 			app.logger.PrintError(err, prop)
 		}
 	})
@@ -229,4 +234,117 @@ func (app *application) listCoachusers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.writeJSON(w, http.StatusOK, envelope{"users": users, "metadata": metadata}, nil)
+}
+
+func (app *application) updateUserWeight(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+
+	var input struct {
+		NewWeight int `json:"weight"`
+	}
+
+	err := app.ReadJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	v := validator.New()
+	v.Check(input.NewWeight > 0, "weight", "must enter a valid weight")
+
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Users.UpdateWeightUserCard(input.NewWeight, user.Id)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
+}
+
+func (app *application) retrieveUserCard(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+
+	user_card := &data.UserCard{
+		Owner: user.Id,
+	}
+
+	err := app.models.Users.RetrieveUserCard(user_card)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"card": user_card}, nil)
+
+}
+
+func (app *application) listuserHistory(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+	var input struct {
+		data.Filters
+	}
+
+	v := validator.New()
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	histories, metadata, err := app.models.Users.ListHistory(user.Id, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"histories": histories, "metadata": metadata}, nil)
+}
+
+func (app *application) listuserHistoryCoach(w http.ResponseWriter, r *http.Request) {
+	coach := app.contextGetUser(r)
+	var input struct {
+		data.Filters
+	}
+	user_id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	ok, err := app.models.Users.CoachPermitted(user_id, coach.Id)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	if !ok {
+		app.notPermittedResponse(w, r)
+		return
+	}
+
+	v := validator.New()
+
+	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	histories, metadata, err := app.models.Users.ListHistory(user_id, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"histories": histories, "metadata": metadata}, nil)
 }
