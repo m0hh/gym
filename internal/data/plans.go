@@ -332,12 +332,31 @@ func (m PlanModel) AddPlantoUser(coach User, user_card *UserCard, u UserModel) e
 		return ErrWrongCredentials
 	}
 
-	stmt := `UPDATE user_card SET current_plan = $1 WHERE owner = $2`
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	stmt1 := `UPDATE user_history SET to_date = $1, weight_finish = $2,  is_now = false WHERE is_now = true AND owner = $3`
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err = m.DB.ExecContext(context, stmt, plan_id, user_card.Owner)
+	_, err = tx.ExecContext(context, stmt1, time.Now(), user_card.Weight, user_card.Owner)
+
+	if err != nil {
+		return err
+	}
+
+	stmt := `UPDATE user_card SET current_plan = $1 WHERE owner = $2`
+
+	_, err = tx.ExecContext(context, stmt, plan_id, user_card.Owner)
 
 	if err != nil {
 		switch {
@@ -348,5 +367,14 @@ func (m PlanModel) AddPlantoUser(coach User, user_card *UserCard, u UserModel) e
 		}
 	}
 
+	stmt2 := `INSERT INTO user_history (plan_done, weight_start, owner) VALUES($1,$2,$3)`
+
+	_, err = tx.ExecContext(context, stmt2, plan_id, user_card.Weight, user_card.Owner)
+
+	if err != nil {
+		return err
+	}
+
+	tx.Commit()
 	return nil
 }

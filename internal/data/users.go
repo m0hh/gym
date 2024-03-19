@@ -232,6 +232,7 @@ type UserCard struct {
 	Owner       int64 `json:"owner"`
 	Coach       int64 `json:"coach"`
 	CurrentPlan int64 `json:"current_plan"`
+	Weight      int   `json:"weight"`
 }
 
 func (m UserModel) CreateUserCardRegistration(usercard UserCard) error {
@@ -295,7 +296,7 @@ func (m UserModel) ListCoachUsers(user User, filter Filters) ([]*User, Metadata,
 }
 
 func (m UserModel) RetrieveUserCard(user_card *UserCard) error {
-	stmt := `SELECT  id, coach, current_plan FROM user_card WHERE owner = $1`
+	stmt := `SELECT  id, coach, current_plan, current_weight FROM user_card WHERE owner = $1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -303,7 +304,7 @@ func (m UserModel) RetrieveUserCard(user_card *UserCard) error {
 	var u_card_coach interface{}
 	var u_card_plan interface{}
 
-	err := m.DB.QueryRowContext(ctx, stmt, user_card.Owner).Scan(&user_card.Id, &u_card_coach, &u_card_plan)
+	err := m.DB.QueryRowContext(ctx, stmt, user_card.Owner).Scan(&user_card.Id, &u_card_coach, &u_card_plan, &user_card.Weight)
 
 	var Id int64
 	Id, ok := u_card_coach.(int64)

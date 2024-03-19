@@ -12,4 +12,5 @@ two services to clculate load and time idle for now
 
 updates should return err record not found meals
 make add day coach only add plan meal
-make user history applied each time user card updated add wieght to user card
+
+make user updates his wieght 
