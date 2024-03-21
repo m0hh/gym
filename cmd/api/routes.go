@@ -74,6 +74,8 @@ func (app *application) routes() http.Handler {
 
 	router.HandlerFunc(http.MethodPost, "/v1/exercise/name/add", app.requireCoachOrAdmin(app.addExerciseName))
 	router.HandlerFunc(http.MethodGet, "/v1/exercise/name/list", app.listExerciseNames)
+	router.HandlerFunc(http.MethodGet, "/v1/exercise/name/get/:id", app.getExerciseName)
+	router.HandlerFunc(http.MethodDelete, "/v1/exercise/name/delete/:id", app.requireAdmin(app.deleteExerciseName))
 
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 

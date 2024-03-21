@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/m0hh/smart-logitics/internal/data"
@@ -67,4 +68,61 @@ func (app *application) listExerciseNames(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 		return
 	}
+}
+
+func (app *application) getExerciseName(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	exercise := &data.ExerciseName{
+		Id: id,
+	}
+	err = app.models.Exercises.GetExerciseName(exercise)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"ex_name": exercise}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (app *application) deleteExerciseName(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.models.Exercises.DeleteExerciseName(id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
 }
