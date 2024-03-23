@@ -270,3 +270,130 @@ func (app *application) deleteExercise(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 
 }
+
+////////////////////////////////////////////////
+
+func (app *application) addExerciseDay(w http.ResponseWriter, r *http.Request) {
+
+	var input struct {
+		Name      string  `json:"name"`
+		Exercises []int64 `json:"exercises"`
+	}
+
+	err := app.ReadJSON(w, r, &input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	exercise_day := &data.ExerciseDayFK{
+		Name:      input.Name,
+		Exercises: input.Exercises,
+	}
+
+	user := app.contextGetUser(r)
+
+	exercise_day.Coach = user.Id
+	v := validator.New()
+
+	if data.ValidateExerciseDay(v, *exercise_day); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Exercises.InsertExerciseDay(exercise_day)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"exercise_day": exercise_day}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateExcerciseDay(w http.ResponseWriter, r *http.Request) {
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	var input struct {
+		Name      *string  `json:"name"`
+		Exercises *[]int64 `json:"exercises"`
+	}
+
+	err = app.ReadJSON(w, r, &input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	user := app.contextGetUser(r)
+
+	exercise_day := &data.ExerciseDayFK{
+		Id:    id,
+		Coach: user.Id,
+	}
+
+	err = app.models.Exercises.GetExerciseDayIdFk(exercise_day)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	if input.Name != nil {
+		exercise_day.Name = *input.Name
+	}
+
+	if input.Exercises != nil {
+		exercise_day.Exercises = *input.Exercises
+	}
+
+	v := validator.New()
+
+	if data.ValidateExerciseDay(v, *exercise_day); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Exercises.UpdateExcerciseDay(exercise_day)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"ex_day": exercise_day}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
