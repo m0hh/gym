@@ -84,6 +84,9 @@ func (app *application) routes() http.Handler {
 
 	router.HandlerFunc(http.MethodPost, "/v1/exercise/day/add", app.requireCoach(app.addExerciseDay))
 	router.HandlerFunc(http.MethodPatch, "/v1/exercise/day/update/:id", app.requireCoach(app.updateExcerciseDay))
+	router.HandlerFunc(http.MethodGet, "/v1/exercise/day/list", app.requireCoach(app.listExerciseDays))
+	router.HandlerFunc(http.MethodGet, "/v1/exercise/day/get/:id", app.requireCoach(app.getExerciseDay))
+	router.HandlerFunc(http.MethodDelete, "/v1/exercise/day/delete/:id", app.requireCoach(app.deleteExerciseDay))
 
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 

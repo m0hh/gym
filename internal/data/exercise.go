@@ -283,6 +283,7 @@ func ValidateExerciseDay(v *validator.Validator, exercise ExerciseDayFK) {
 	v.Check(exercise.Coach > 0, "coach", "must send a valid coach id")
 
 	v.Check(validator.Unique(exercise.Exercises), "exercies", "You munst send not send the same exercise twice")
+	v.Check(len(exercise.Exercises) != 0, "exercises", "You must at least input one exercise")
 }
 
 func (m ExerciseModel) InsertExerciseDay(exercise_day *ExerciseDayFK) error {
@@ -433,6 +434,168 @@ func (m ExerciseModel) GetExerciseDayIdFk(exercise_day *ExerciseDayFK) error {
 
 	exercise_day.Exercises = ids
 
+	return nil
+
+}
+
+func (m ExerciseModel) ListExerciseDays(coach_id int64, filter Filters) ([]*ExerciseDay, Metadata, error) {
+	stmt := `SELECT count(*) OVER(), d.id, d.name, e.id,  e.name, e.sets, e.reps, e.weight
+	FROM  exercise_day AS d JOIN exercises_to_day AS t ON d.id = t.day_id  JOIN exercise AS e ON t.exercise_id = e.id
+	WHERE  d.coach = $1 LIMIT $2 OFFSET $3`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, coach_id, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	ids_to_exercise_day := make(map[int]*ExerciseDay)
+	var exercie_days []*ExerciseDay
+	totalRecords := 0
+
+	for rows.Next() {
+
+		var excercise_day_id int64
+		var exercie_day_Name string
+		exercies := Exercise{}
+		err = rows.Scan(
+			&totalRecords,
+			&excercise_day_id,
+			&exercie_day_Name,
+			&exercies.Id,
+			&exercies.Name,
+			&exercies.Sets,
+			&exercies.Reps,
+			&exercies.Weight,
+		)
+
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		if _, ok := ids_to_exercise_day[int(excercise_day_id)]; !ok {
+
+			exercie_day := ExerciseDay{Id: excercise_day_id, Name: exercie_day_Name}
+			ids_to_exercise_day[int(excercise_day_id)] = &exercie_day
+
+			ids_to_exercise_day[int(excercise_day_id)].Exercises = append(ids_to_exercise_day[int(excercise_day_id)].Exercises, exercies)
+			exercie_days = append(exercie_days, ids_to_exercise_day[int(excercise_day_id)])
+		} else {
+			ids_to_exercise_day[int(excercise_day_id)].Exercises = append(ids_to_exercise_day[int(excercise_day_id)].Exercises, exercies)
+		}
+
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+
+	return exercie_days, metadata, nil
+
+}
+
+func (m ExerciseModel) GetExerciseDay(day *ExerciseDay, coach_id int64) error {
+	stmt := `SELECT   d.name, e.id,  e.name, e.sets, e.reps, e.weight
+	FROM  exercise_day AS d JOIN exercises_to_day AS t ON d.id = t.day_id  JOIN exercise AS e ON t.exercise_id = e.id
+	WHERE  d.coach = $1 AND d.id = $2`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, coach_id, day.Id)
+
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+
+		exercies := Exercise{}
+		err = rows.Scan(
+			&day.Name,
+			&exercies.Id,
+			&exercies.Name,
+			&exercies.Sets,
+			&exercies.Reps,
+			&exercies.Weight,
+		)
+
+		if err != nil {
+			return err
+		}
+		day.Exercises = append(day.Exercises, exercies)
+
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if day.Name == "" {
+		return ErrRcordNotFound
+	}
+
+	return nil
+
+}
+
+func (m ExerciseModel) DeleteExerciseDay(exercise_day_id, coach_id int64) error {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	stmt := `DELETE FROM exercises_to_day WHERE day_id =$1`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := tx.ExecContext(context, stmt, exercise_day_id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
+	}
+
+	stmt2 := `DELETE FROM exercise_day WHERE id =$1 AND coach = $2`
+
+	result, err = tx.ExecContext(context, stmt2, exercise_day_id, coach_id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
+	}
+
+	tx.Commit()
 	return nil
 
 }

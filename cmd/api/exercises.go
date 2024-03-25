@@ -397,3 +397,86 @@ func (app *application) updateExcerciseDay(w http.ResponseWriter, r *http.Reques
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) listExerciseDays(w http.ResponseWriter, r *http.Request) {
+	var filter data.Filters
+	v := validator.New()
+	filter.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	filter.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, filter); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	user := app.contextGetUser(r)
+
+	exerciseDays, metadata, err := app.models.Exercises.ListExerciseDays(user.Id, filter)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"ex_days": exerciseDays, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (app *application) getExerciseDay(w http.ResponseWriter, r *http.Request) {
+
+	user := app.contextGetUser(r)
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	day := &data.ExerciseDay{Id: id}
+
+	err = app.models.Exercises.GetExerciseDay(day, user.Id)
+
+	if err != nil {
+		if errors.Is(err, data.ErrRcordNotFound) {
+			app.notFoundResponse(w, r)
+			return
+		}
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"ex_day": day}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (app *application) deleteExerciseDay(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	coach := app.contextGetUser(r)
+
+	err = app.models.Exercises.DeleteExerciseDay(id, coach.Id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
+}
