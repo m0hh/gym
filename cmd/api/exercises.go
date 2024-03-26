@@ -480,3 +480,220 @@ func (app *application) deleteExerciseDay(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 
 }
+
+/////////////////////////////////////////////////////////
+
+func (app *application) addExercisePlan(w http.ResponseWriter, r *http.Request) {
+
+	var input struct {
+		Name  string  `json:"name"`
+		HowTo string  `json:"how_to"`
+		Days  []int64 `json:"days"`
+	}
+
+	err := app.ReadJSON(w, r, &input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	exercise_plan := &data.ExercisePlanFK{
+		Name:  input.Name,
+		HowTo: input.HowTo,
+		Days:  input.Days,
+	}
+
+	user := app.contextGetUser(r)
+
+	exercise_plan.Coach = user.Id
+	v := validator.New()
+
+	if data.ValidateExercisePlan(v, *exercise_plan); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Exercises.InsertExercisePlan(exercise_plan)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrWrongForeignKey):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"exercise_plan": exercise_plan}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateExcercisePlan(w http.ResponseWriter, r *http.Request) {
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	var input struct {
+		Name  *string  `json:"name"`
+		HowTo *string  `json:"how_to"`
+		Days  *[]int64 `json:"days"`
+	}
+
+	err = app.ReadJSON(w, r, &input)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	user := app.contextGetUser(r)
+
+	exercise_plan := &data.ExercisePlanFK{
+		Id:    id,
+		Coach: user.Id,
+	}
+
+	err = app.models.Exercises.GetExercisePlanIdFk(exercise_plan)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	if input.Name != nil {
+		exercise_plan.Name = *input.Name
+	}
+
+	if input.HowTo != nil {
+		exercise_plan.HowTo = *input.HowTo
+	}
+
+	if input.Days != nil {
+		exercise_plan.Days = *input.Days
+	}
+
+	v := validator.New()
+
+	if data.ValidateExercisePlan(v, *exercise_plan); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Exercises.UpdateExcercisePlan(exercise_plan)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"ex_plan": exercise_plan}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) listExercisePlans(w http.ResponseWriter, r *http.Request) {
+	var filter data.Filters
+	v := validator.New()
+	filter.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
+	filter.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
+
+	if data.ValidateFilters(v, filter); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	user := app.contextGetUser(r)
+
+	exerciseDays, metadata, err := app.models.Exercises.ListExercisePlans(user.Id, filter)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"ex_plans": exerciseDays, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (app *application) getExercisePlan(w http.ResponseWriter, r *http.Request) {
+
+	user := app.contextGetUser(r)
+
+	id, err := app.ReadIDParam(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	plan := &data.ExercisePlan{Id: id}
+
+	err = app.models.Exercises.GetExercisePlan(plan, user.Id)
+
+	if err != nil {
+		if errors.Is(err, data.ErrRcordNotFound) {
+			app.notFoundResponse(w, r)
+			return
+		}
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"ex_plan": plan}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (app *application) deleteExercisePlan(w http.ResponseWriter, r *http.Request) {
+	id, err := app.ReadIDParam(r)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	coach := app.contextGetUser(r)
+
+	err = app.models.Exercises.DeleteExercisePlan(id, coach.Id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
+}

@@ -31,10 +31,10 @@ type ExerciseDay struct {
 }
 
 type ExercisePlan struct {
-	Id    int64         `json:"id"`
-	Name  string        `json:"name"`
-	HowTo string        `json:"how_to"`
-	Days  []ExerciseDay `json:"days"`
+	Id    int64    `json:"id"`
+	Name  string   `json:"name"`
+	HowTo string   `json:"how_to"`
+	Days  []string `json:"days"`
 }
 
 type ExerciseFK struct {
@@ -581,6 +581,329 @@ func (m ExerciseModel) DeleteExerciseDay(exercise_day_id, coach_id int64) error 
 	stmt2 := `DELETE FROM exercise_day WHERE id =$1 AND coach = $2`
 
 	result, err = tx.ExecContext(context, stmt2, exercise_day_id, coach_id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
+	}
+
+	tx.Commit()
+	return nil
+
+}
+
+//////////////////////////////
+
+func ValidateExercisePlan(v *validator.Validator, exercise ExercisePlanFK) {
+	v.Check(exercise.Name != "", "name", "must send a name")
+	v.Check(exercise.Coach > 0, "coach", "must send a valid coach id")
+	v.Check(exercise.HowTo != "", "how_to", "must send a how to")
+
+	v.Check(validator.Unique(exercise.Days), "days", "You munst send not send the same day twice")
+	v.Check(len(exercise.Days) != 0, "days", "You must at least input one day")
+}
+
+func (m ExerciseModel) InsertExercisePlan(exercise_plan *ExercisePlanFK) error {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	stmt := `INSERT INTO exercise_plan (name,how_to,coach) VALUES ($1,$2,$3) RETURNING id`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err = tx.QueryRowContext(context, stmt, exercise_plan.Name, exercise_plan.HowTo, exercise_plan.Coach).Scan(&exercise_plan.Id)
+
+	if err != nil {
+		return err
+	}
+
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, day_id := range exercise_plan.Days {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, day_id, exercise_plan.Id)
+		i += 2
+	}
+
+	stmt1 := fmt.Sprintf(`INSERT INTO days_to_plan (day_id, plan_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), `pq: insert or update on table "days_to_plan" violates foreign key constraint`) {
+			err = ErrRcordNotFound
+			return err
+		}
+		return err
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func (m *ExerciseModel) UpdateExcercisePlan(exercise_plan *ExercisePlanFK) error {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	stmt2 := `UPDATE exercise_plan SET name =  $1 , how_to = $2 WHERE id = $3 AND coach = $4`
+
+	result, err := tx.ExecContext(context, stmt2, exercise_plan.Name, exercise_plan.HowTo, exercise_plan.Id, exercise_plan.Coach)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
+	}
+
+	stmt := `DELETE FROM days_to_plan WHERE plan_id = $1`
+
+	result, err = tx.ExecContext(context, stmt, exercise_plan.Id)
+
+	if err != nil {
+
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
+	}
+
+	var bulkInsertValues []interface{}
+	bulkInsertStrings := make([]string, 0)
+	i := 1
+	for _, day := range exercise_plan.Days {
+		bulkInsertStrings = append(bulkInsertStrings, fmt.Sprintf("($%d,$%d)", i, i+1))
+		bulkInsertValues = append(bulkInsertValues, day, exercise_plan.Id)
+		i += 2
+	}
+
+	stmt1 := fmt.Sprintf(`INSERT INTO days_to_plan (day_id, plan_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
+	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), `pq: insert or update on table "days_to_plan" violates foreign key constraint`) {
+			err = ErrRcordNotFound
+			return err
+		}
+		return err
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func (m ExerciseModel) GetExercisePlanIdFk(exercise_plan *ExercisePlanFK) error {
+	stmt := `SELECT p.name,p.how_to, e.day_id FROM  exercise_plan AS p JOIN days_to_plan AS e ON p.id = e.plan_id WHERE p.id = $1 AND p.coach = $2`
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, exercise_plan.Id, exercise_plan.Coach)
+
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		err = rows.Scan(&exercise_plan.Name, &exercise_plan.HowTo, &id)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, id)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	exercise_plan.Days = ids
+
+	return nil
+
+}
+
+func (m ExerciseModel) ListExercisePlans(coach_id int64, filter Filters) ([]*ExercisePlan, Metadata, error) {
+	stmt := `SELECT count(*) OVER(),p.id, p.name,p.how_to, d.name
+	FROM  exercise_plan AS p JOIN days_to_plan AS t ON p.id = t.plan_id  JOIN exercise_day AS d ON t.day_id = d.id
+	WHERE  p.coach = $1 LIMIT $2 OFFSET $3`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, coach_id, filter.limit(), filter.offset())
+
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	ids_to_exercise_plan := make(map[int64]*ExercisePlan)
+	var exercie_plans []*ExercisePlan
+	totalRecords := 0
+
+	for rows.Next() {
+
+		var excercise_plan_id int64
+		var exercie_plan_Name string
+		var exercie_plan_how string
+
+		var day_name string
+		err = rows.Scan(
+			&totalRecords,
+			&excercise_plan_id,
+			&exercie_plan_Name,
+			&exercie_plan_how,
+			&day_name,
+		)
+
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		if _, ok := ids_to_exercise_plan[excercise_plan_id]; !ok {
+
+			exercie_plan := ExercisePlan{Id: excercise_plan_id, Name: exercie_plan_Name, HowTo: exercie_plan_how}
+			ids_to_exercise_plan[excercise_plan_id] = &exercie_plan
+
+			ids_to_exercise_plan[excercise_plan_id].Days = append(ids_to_exercise_plan[excercise_plan_id].Days, day_name)
+			exercie_plans = append(exercie_plans, ids_to_exercise_plan[excercise_plan_id])
+		} else {
+			ids_to_exercise_plan[excercise_plan_id].Days = append(ids_to_exercise_plan[excercise_plan_id].Days, day_name)
+		}
+
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filter.Page, filter.PageSize)
+
+	return exercie_plans, metadata, nil
+
+}
+
+func (m ExerciseModel) GetExercisePlan(plan *ExercisePlan, coach_id int64) error {
+	stmt := `SELECT p.name,p.how_to, d.name
+	FROM  exercise_plan AS p JOIN days_to_plan AS t ON p.id = t.plan_id  JOIN exercise_day AS d ON t.day_id = d.id
+	WHERE  p.coach = $1 AND p.id = $2`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(context, stmt, coach_id, plan.Id)
+
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+
+		var day_name string
+		err = rows.Scan(
+			&plan.Name,
+			&plan.HowTo,
+			&day_name,
+		)
+
+		if err != nil {
+			return err
+		}
+		plan.Days = append(plan.Days, day_name)
+
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if plan.Name == "" {
+		return ErrRcordNotFound
+	}
+
+	return nil
+
+}
+
+func (m ExerciseModel) DeleteExercisePlan(exercise_plan_id, coach_id int64) error {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	stmt := `DELETE FROM days_to_plan WHERE plan_id =$1`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := tx.ExecContext(context, stmt, exercise_plan_id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
+	}
+
+	stmt2 := `DELETE FROM exercise_plan WHERE id =$1 AND coach = $2`
+
+	result, err = tx.ExecContext(context, stmt2, exercise_plan_id, coach_id)
 
 	if err != nil {
 		return err

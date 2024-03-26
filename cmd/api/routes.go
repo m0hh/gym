@@ -88,6 +88,12 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/exercise/day/get/:id", app.requireCoach(app.getExerciseDay))
 	router.HandlerFunc(http.MethodDelete, "/v1/exercise/day/delete/:id", app.requireCoach(app.deleteExerciseDay))
 
+	router.HandlerFunc(http.MethodPost, "/v1/exercise/plan/add", app.requireCoach(app.addExercisePlan))
+	router.HandlerFunc(http.MethodPatch, "/v1/exercise/plan/update/:id", app.requireCoach(app.updateExcercisePlan))
+	router.HandlerFunc(http.MethodGet, "/v1/exercise/plan/list", app.requireCoach(app.listExercisePlans))
+	router.HandlerFunc(http.MethodGet, "/v1/exercise/plan/get/:id", app.requireCoach(app.getExercisePlan))
+	router.HandlerFunc(http.MethodDelete, "/v1/exercise/plan/delete/:id", app.requireCoach(app.deleteExercisePlan))
+
 	router.Handler(http.MethodGet, "/debug/vars", expvar.Handler())
 
 	return app.metrics(app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router)))))

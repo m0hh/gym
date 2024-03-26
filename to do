@@ -12,3 +12,4 @@ two services to clculate load and time idle for now
 
 updates should return err record not found meals
 go over updates and use rows affected and wrong fk 
+exercise plan and anything returning name only should also return ID for retriving
