@@ -228,11 +228,12 @@ func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error)
 }
 
 type UserCard struct {
-	Id          int64 `json:"id"`
-	Owner       int64 `json:"owner"`
-	Coach       int64 `json:"coach"`
-	CurrentPlan int64 `json:"current_plan"`
-	Weight      int   `json:"weight"`
+	Id            int64 `json:"id"`
+	Owner         int64 `json:"owner"`
+	Coach         int64 `json:"coach"`
+	CurrentPlan   int64 `json:"current_plan"`
+	Weight        int   `json:"weight"`
+	CurrentExPlan int64 `json:"current_exercise_plan"`
 }
 
 func (m UserModel) CreateUserCardRegistration(usercard UserCard) error {
@@ -296,15 +297,16 @@ func (m UserModel) ListCoachUsers(user User, filter Filters) ([]*User, Metadata,
 }
 
 func (m UserModel) RetrieveUserCard(user_card *UserCard) error {
-	stmt := `SELECT  id, coach, current_plan, current_weight FROM user_card WHERE owner = $1`
+	stmt := `SELECT  id, coach, current_plan, current_exercise_plan, current_weight  FROM user_card WHERE owner = $1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var u_card_coach interface{}
 	var u_card_plan interface{}
+	var u_card_ex_plan interface{}
 
-	err := m.DB.QueryRowContext(ctx, stmt, user_card.Owner).Scan(&user_card.Id, &u_card_coach, &u_card_plan, &user_card.Weight)
+	err := m.DB.QueryRowContext(ctx, stmt, user_card.Owner).Scan(&user_card.Id, &u_card_coach, &u_card_plan, &u_card_ex_plan, &user_card.Weight)
 
 	var Id int64
 	Id, ok := u_card_coach.(int64)
@@ -316,6 +318,11 @@ func (m UserModel) RetrieveUserCard(user_card *UserCard) error {
 	Id, ok = u_card_plan.(int64)
 	if ok {
 		user_card.CurrentPlan = Id
+	}
+
+	Id, ok = u_card_ex_plan.(int64)
+	if ok {
+		user_card.CurrentExPlan = Id
 	}
 
 	if err != nil {
@@ -349,6 +356,7 @@ func (m UserModel) UpdateWeightUserCard(weight int, owner int64) error {
 type UserHistory struct {
 	Id              int64             `json:"id"`
 	Plan            PlanMealCoachList `json:"plan"`
+	ExercisePlan    string            `json:"ex_plan"`
 	From            time.Time         `json:"form"`
 	To              time.Time         `json:"to"`
 	StartingWeight  int               `json:"starting_weight"`
@@ -371,9 +379,12 @@ func (m UserModel) ListHistory(user_id int64, filter Filters) ([]*UserHistory, M
     d4.name ,
     d5.name ,
     d6.name ,
-    d7.name 
+    d7.name ,
+	e.name
 	FROM 
 		user_history AS hist
+	JOIN 
+		exercise_plan AS e ON hist.exercise_plan_done = e.id
 	JOIN
 	
 		plan_meal AS pm ON hist.plan_done = pm.id
@@ -427,6 +438,7 @@ func (m UserModel) ListHistory(user_id int64, filter Filters) ([]*UserHistory, M
 			&history.Plan.FifthDay,
 			&history.Plan.SixthDay,
 			&history.Plan.SeventhDay,
+			&history.ExercisePlan,
 		)
 		if err != nil {
 			return nil, Metadata{}, err

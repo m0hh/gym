@@ -697,3 +697,53 @@ func (app *application) deleteExercisePlan(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 
 }
+
+func (app *application) addExPlantoUser(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		NewExPlan int64 `json:"new_ex_plan"`
+		Owner     int64 `json:"owner"`
+	}
+
+	err := app.ReadJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	coach := app.contextGetUser(r)
+
+	user_card := &data.UserCard{
+		Owner:         input.Owner,
+		CurrentExPlan: input.NewExPlan,
+	}
+
+	v := validator.New()
+
+	v.Check(user_card.Owner > 0, "owner", "must provide a valid owner")
+	v.Check(user_card.CurrentExPlan > 0, "new_ex_plan", "must provide a valid new_plan")
+
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Exercises.AddExPlantoUser(*coach, user_card, app.models.Users)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
+			return
+		case errors.Is(err, data.ErrWrongCredentials):
+			app.notPermittedResponse(w, r)
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
+}

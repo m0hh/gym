@@ -922,3 +922,67 @@ func (m ExerciseModel) DeleteExercisePlan(exercise_plan_id, coach_id int64) erro
 	return nil
 
 }
+
+func (m ExerciseModel) AddExPlantoUser(coach User, user_card *UserCard, u UserModel) error {
+	ex_plan_id := user_card.CurrentExPlan
+
+	err := u.RetrieveUserCard(user_card)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrRcordNotFound):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	if user_card.Coach != coach.Id {
+		return ErrWrongCredentials
+	}
+
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	stmt1 := `UPDATE user_history SET to_date = $1, weight_finish = $2,  is_now = false WHERE is_now = true AND owner = $3`
+
+	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err = tx.ExecContext(context, stmt1, time.Now(), user_card.Weight, user_card.Owner)
+
+	if err != nil {
+		return err
+	}
+
+	stmt := `UPDATE user_card SET current_exercise_plan = $1 WHERE owner = $2`
+
+	_, err = tx.ExecContext(context, stmt, ex_plan_id, user_card.Owner)
+
+	if err != nil {
+		switch {
+		case strings.HasPrefix(err.Error(), `pq: insert or update on table "user_card" violates foreign key constraint`):
+			return ErrRcordNotFound
+		default:
+			return err
+		}
+	}
+
+	stmt2 := `INSERT INTO user_history (plan_done, exercise_plan_done, weight_start, owner) VALUES($1,$2,$3,$4)`
+
+	_, err = tx.ExecContext(context, stmt2, user_card.CurrentPlan, ex_plan_id, user_card.Weight, user_card.Owner)
+
+	if err != nil {
+		return err
+	}
+
+	tx.Commit()
+	return nil
+}

@@ -367,9 +367,9 @@ func (m PlanModel) AddPlantoUser(coach User, user_card *UserCard, u UserModel) e
 		}
 	}
 
-	stmt2 := `INSERT INTO user_history (plan_done, weight_start, owner) VALUES($1,$2,$3)`
+	stmt2 := `INSERT INTO user_history (plan_done, exercise_plan_done,  weight_start, owner) VALUES($1,$2,$3,$4)`
 
-	_, err = tx.ExecContext(context, stmt2, plan_id, user_card.Weight, user_card.Owner)
+	_, err = tx.ExecContext(context, stmt2, plan_id, user_card.CurrentExPlan, user_card.Weight, user_card.Owner)
 
 	if err != nil {
 		return err
