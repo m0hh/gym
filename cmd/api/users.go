@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/m0hh/smart-logitics/internal/data"
 	"github.com/m0hh/smart-logitics/internal/validator"
@@ -29,7 +28,7 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	user := &data.User{
 		Name:      input.Name,
 		Email:     input.Email,
-		Activated: false,
+		Activated: true,
 		Role:      data.TraineeRole,
 	}
 
@@ -57,12 +56,6 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	token, err := app.models.Tokens.New(user.Id, 3*24*time.Hour, data.ScopeActivation)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-
 	app.background(func() {
 
 		usercard := &data.UserCard{
@@ -78,8 +71,8 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		}
 
 		data := map[string]interface{}{
-			"activationToken": token.Plaintext,
-			"userID":          user.Id,
+			"name":         user.Name,
+			"userPassword": input.Password,
 		}
 		err = app.mailer.Send(user.Email, "user_welcome.html", data)
 		if err != nil {

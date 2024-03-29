@@ -311,28 +311,39 @@ func (m *MealsModel) UpdateBreakfast(breakfast *Breakfast) error {
 
 	stmt2 := `UPDATE breakfast SET calories = $1 WHERE id = $2`
 
-	_, err = tx.ExecContext(context, stmt2, breakfast.Calories, breakfast.Id)
+	result, err := tx.ExecContext(context, stmt2, breakfast.Calories, breakfast.Id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	stmt := `DELETE FROM breakfast_food WHERE breakfast_id = $1`
 
-	_, err = tx.ExecContext(context, stmt, breakfast.Id)
+	result, err = tx.ExecContext(context, stmt, breakfast.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	var bulkInsertValues []interface{}
@@ -569,7 +580,6 @@ func (m MealsModel) CreateAmSnack(amSnack *AmSnack) error {
 
 	stmt1 := fmt.Sprintf(`INSERT INTO am_snack_food (am_snack_id, food_id) VALUES %s`, strings.Join(bulkInsertStrings, ","))
 	_, err = tx.ExecContext(context, stmt1, bulkInsertValues...)
-	fmt.Println(err.Error() == `pq: insert or update on table "am_snack_food" violates foreign key constraint "am_snack_food_food_id_fkey"`)
 	if err != nil {
 		if err.Error() == `pq: insert or update on table "am_snack_food" violates foreign key constraint "am_snack_food_food_id_fkey"` {
 			return ErrWrongForeignKey
@@ -604,28 +614,40 @@ func (m *MealsModel) UpdateAmSnack(am_snack *AmSnack) error {
 
 	stmt2 := `UPDATE am_snack SET calories = $1 WHERE id = $2`
 
-	_, err = tx.ExecContext(context, stmt2, am_snack.Calories, am_snack.Id)
+	result, err := tx.ExecContext(context, stmt2, am_snack.Calories, am_snack.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	stmt := `DELETE FROM am_snack_food WHERE am_snack_id = $1`
 
-	_, err = tx.ExecContext(context, stmt, am_snack.Id)
+	result, err = tx.ExecContext(context, stmt, am_snack.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	var bulkInsertValues []interface{}
@@ -895,28 +917,40 @@ func (m *MealsModel) UpdateLunch(lunch *Lunch) error {
 
 	stmt2 := `UPDATE lunch SET calories = $1 WHERE id = $2`
 
-	_, err = tx.ExecContext(context, stmt2, lunch.Calories, lunch.Id)
+	result, err := tx.ExecContext(context, stmt2, lunch.Calories, lunch.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	stmt := `DELETE FROM lunch_food WHERE lunch_id = $1`
 
-	_, err = tx.ExecContext(context, stmt, lunch.Id)
+	result, err = tx.ExecContext(context, stmt, lunch.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	var bulkInsertValues []interface{}
@@ -1187,28 +1221,40 @@ func (m *MealsModel) UpdatePmSnack(pm_snack *PmSnack) error {
 
 	stmt2 := `UPDATE pm_snack SET calories = $1 WHERE id = $2`
 
-	_, err = tx.ExecContext(context, stmt2, pm_snack.Calories, pm_snack.Id)
+	result, err := tx.ExecContext(context, stmt2, pm_snack.Calories, pm_snack.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	stmt := `DELETE FROM pm_snack_food WHERE pm_snack_id = $1`
 
-	_, err = tx.ExecContext(context, stmt, pm_snack.Id)
+	result, err = tx.ExecContext(context, stmt, pm_snack.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	var bulkInsertValues []interface{}
@@ -1478,28 +1524,40 @@ func (m *MealsModel) UpdateDinner(dinner *Dinner) error {
 
 	stmt2 := `UPDATE dinner SET calories = $1 WHERE id = $2`
 
-	_, err = tx.ExecContext(context, stmt2, dinner.Calories, dinner.Id)
+	result, err := tx.ExecContext(context, stmt2, dinner.Calories, dinner.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	stmt := `DELETE FROM dinner_food WHERE dinner_id = $1`
 
-	_, err = tx.ExecContext(context, stmt, dinner.Id)
+	result, err = tx.ExecContext(context, stmt, dinner.Id)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrRcordNotFound
-		default:
-			return err
-		}
+		return err
+	}
+
+	rowsAffected, err = result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		err = ErrRcordNotFound
+		return err
 	}
 
 	var bulkInsertValues []interface{}

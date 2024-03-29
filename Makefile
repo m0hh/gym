@@ -21,7 +21,7 @@ confirm:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:
-	go run ./cmd/api -db-dsn=${db_dsn} -smtp-password=67433d292d5bda
+	go run ./cmd/api -db-dsn=${db_dsn} -smtp-password=67433d292d5bda cors-trusted-origins=*
 
 ## db/psql: connect to the database using psql
 .PHONY: db/psql
