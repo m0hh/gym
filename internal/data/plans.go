@@ -193,15 +193,19 @@ type PlanMeal struct {
 	Coach      int64 `json:"coach"`
 }
 
+type DayPlanMeal struct {
+	Name string `json:"name"`
+	Id   int64  `json:"id"`
+}
 type PlanMealCoachList struct {
-	Id         int64  `json:"id"`
-	FirstDay   string `json:"first_day"`
-	SecondDay  string `json:"second_day"`
-	ThirdDay   string `json:"third_day"`
-	FourthDay  string `json:"fourth_day"`
-	FifthDay   string `json:"fifth_day"`
-	SixthDay   string `json:"sixth_day"`
-	SeventhDay string `json:"seventh_day"`
+	Id         int64       `json:"id"`
+	FirstDay   DayPlanMeal `json:"first_day"`
+	SecondDay  DayPlanMeal `json:"second_day"`
+	ThirdDay   DayPlanMeal `json:"third_day"`
+	FourthDay  DayPlanMeal `json:"fourth_day"`
+	FifthDay   DayPlanMeal `json:"fifth_day"`
+	SixthDay   DayPlanMeal `json:"sixth_day"`
+	SeventhDay DayPlanMeal `json:"seventh_day"`
 }
 
 type PlanMealFull struct {
@@ -258,12 +262,19 @@ func (m PlanModel) GetAllPlansCoach(user User, filter Filters) ([]*PlanMealCoach
 	count(*) OVER(),
     pm.id ,
     d1.name ,
+	d1.id,
     d2.name ,
+	d2.id,
     d3.name ,
+	d3.id,
     d4.name ,
+	d4.id,
     d5.name ,
+	d5.id,
     d6.name ,
-    d7.name 
+	d2.id,
+    d7.name ,
+	d7.id
 	FROM 
 		plan_meal AS pm
 	JOIN 
@@ -299,7 +310,7 @@ func (m PlanModel) GetAllPlansCoach(user User, filter Filters) ([]*PlanMealCoach
 	totalRecords := 0
 	for rows.Next() {
 		var plan PlanMealCoachList
-		err = rows.Scan(&totalRecords, &plan.Id, &plan.FirstDay, &plan.SecondDay, &plan.ThirdDay, &plan.FourthDay, &plan.FifthDay, &plan.SixthDay, &plan.SeventhDay)
+		err = rows.Scan(&totalRecords, &plan.Id, &plan.FirstDay.Name, &plan.FirstDay.Id, &plan.SecondDay.Name, &plan.SecondDay.Id, &plan.ThirdDay.Name, &plan.ThirdDay.Id, &plan.FourthDay.Name, &plan.FourthDay.Id, &plan.FifthDay.Name, &plan.FifthDay.Id, &plan.SixthDay.Name, &plan.SixthDay.Id, &plan.SeventhDay.Name, &plan.SeventhDay.Id)
 		if err != nil {
 			return nil, Metadata{}, err
 		}

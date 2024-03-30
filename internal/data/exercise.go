@@ -30,11 +30,15 @@ type ExerciseDay struct {
 	Exercises []Exercise `json:"exercises"`
 }
 
+type DayExercisePlan struct {
+	Name string `json:"name"`
+	Id   int64  `json:"id"`
+}
 type ExercisePlan struct {
-	Id    int64    `json:"id"`
-	Name  string   `json:"name"`
-	HowTo string   `json:"how_to"`
-	Days  []string `json:"days"`
+	Id    int64             `json:"id"`
+	Name  string            `json:"name"`
+	HowTo string            `json:"how_to"`
+	Days  []DayExercisePlan `json:"days"`
 }
 
 type ExerciseFK struct {
@@ -766,7 +770,7 @@ func (m ExerciseModel) GetExercisePlanIdFk(exercise_plan *ExercisePlanFK) error 
 }
 
 func (m ExerciseModel) ListExercisePlans(coach_id int64, filter Filters) ([]*ExercisePlan, Metadata, error) {
-	stmt := `SELECT count(*) OVER(),p.id, p.name,p.how_to, d.name
+	stmt := `SELECT count(*) OVER(),p.id, p.name,p.how_to, d.name, d.id
 	FROM  exercise_plan AS p JOIN days_to_plan AS t ON p.id = t.plan_id  JOIN exercise_day AS d ON t.day_id = d.id
 	WHERE  p.coach = $1 LIMIT $2 OFFSET $3`
 
@@ -791,13 +795,14 @@ func (m ExerciseModel) ListExercisePlans(coach_id int64, filter Filters) ([]*Exe
 		var exercie_plan_Name string
 		var exercie_plan_how string
 
-		var day_name string
+		var day_name DayExercisePlan
 		err = rows.Scan(
 			&totalRecords,
 			&excercise_plan_id,
 			&exercie_plan_Name,
 			&exercie_plan_how,
-			&day_name,
+			&day_name.Name,
+			&day_name.Id,
 		)
 
 		if err != nil {
@@ -827,7 +832,7 @@ func (m ExerciseModel) ListExercisePlans(coach_id int64, filter Filters) ([]*Exe
 }
 
 func (m ExerciseModel) GetExercisePlan(plan *ExercisePlan, coach_id int64) error {
-	stmt := `SELECT p.name,p.how_to, d.name
+	stmt := `SELECT p.name,p.how_to, d.name, d.id
 	FROM  exercise_plan AS p JOIN days_to_plan AS t ON p.id = t.plan_id  JOIN exercise_day AS d ON t.day_id = d.id
 	WHERE  p.coach = $1 AND p.id = $2`
 
@@ -844,11 +849,12 @@ func (m ExerciseModel) GetExercisePlan(plan *ExercisePlan, coach_id int64) error
 
 	for rows.Next() {
 
-		var day_name string
+		var day_name DayExercisePlan
 		err = rows.Scan(
 			&plan.Name,
 			&plan.HowTo,
-			&day_name,
+			&day_name.Name,
+			&day_name.Id,
 		)
 
 		if err != nil {

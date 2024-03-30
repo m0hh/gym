@@ -28,7 +28,7 @@ type User struct {
 	Password  password  `json:"-"`
 	Activated bool      `json:"activated"`
 	Version   int       `json:"-"`
-	Role      string    `json:"-"`
+	Role      string    `json:"role"`
 }
 
 func (u *User) IsAnonymous() bool {
