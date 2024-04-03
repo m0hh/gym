@@ -11,6 +11,7 @@ var (
 	ErrUniqueFood       = errors.New("unique food with serving failed")
 	ErrWrongForeignKey  = errors.New("wrong Foreign key")
 	ErrWrongCredentials = errors.New("wrong credentials")
+	ErrFKConflict       = errors.New("Foriegn Key conflicr")
 )
 
 type Models struct {

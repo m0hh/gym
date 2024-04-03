@@ -16,36 +16,42 @@ type Food struct {
 	FoodName string `json:"food_name"`
 	Serving  string `json:"serving"`
 	Calories int    `json:"calories"`
+	Coach    int64  `json:"-"`
 }
 
 type Breakfast struct {
 	Id       int64  `json:"id"`
 	Calories int    `json:"calories"`
 	Food     []Food `json:"food"`
+	Coach    int64  `json:"-"`
 }
 
 type AmSnack struct {
 	Id       int64  `json:"id"`
 	Calories int    `json:"calories"`
 	Food     []Food `json:"food"`
+	Coach    int64  `json:"-"`
 }
 
 type Lunch struct {
 	Id       int64  `json:"id"`
 	Calories int    `json:"calories"`
 	Food     []Food `json:"food"`
+	Coach    int64  `json:"-"`
 }
 
 type PmSnack struct {
 	Id       int64  `json:"id"`
 	Calories int    `json:"calories"`
 	Food     []Food `json:"food"`
+	Coach    int64  `json:"-"`
 }
 
 type Dinner struct {
 	Id       int64  `json:"id"`
 	Calories int    `json:"calories"`
 	Food     []Food `json:"food"`
+	Coach    int64  `json:"-"`
 }
 
 type MealsModel struct {
@@ -60,12 +66,12 @@ func ValidateFood(v *validator.Validator, food Food) {
 }
 
 func (m MealsModel) CreateFood(food *Food) error {
-	stmt := ` INSERT INTO food (food_name, serving, calories)
-	VALUES ($1, $2, $3) 
+	stmt := ` INSERT INTO food (food_name, serving, calories, coach)
+	VALUES ($1, $2, $3, $4) 
 	RETURNING id
 	`
 
-	args := []interface{}{food.FoodName, food.Serving, food.Calories}
+	args := []interface{}{food.FoodName, food.Serving, food.Calories, food.Coach}
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
@@ -76,6 +82,9 @@ func (m MealsModel) CreateFood(food *Food) error {
 		switch {
 		case err.Error() == `pq: duplicate key value violates unique constraint "unique_food_serving"`:
 			return ErrUniqueFood
+		case strings.HasPrefix(err.Error(), `pq: insert or update on table "food" violates foreign key constraint`):
+			return ErrRcordNotFound
+
 		default:
 			return err
 		}
@@ -111,14 +120,14 @@ func (m MealsModel) UpdateFood(food *Food) error {
 }
 
 func (m MealsModel) GetById(food *Food) error {
-	stmt := `SELECT food_name, serving, calories FROM food
-	WHERE id = $1`
+	stmt := `SELECT food_name, serving, calories, coach FROM food
+	WHERE id = $1 AND coach = $2`
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	err := m.DB.QueryRowContext(context, stmt, food.Id).Scan(&food.FoodName, &food.Serving, &food.Calories)
+	err := m.DB.QueryRowContext(context, stmt, food.Id, food.Coach).Scan(&food.FoodName, &food.Serving, &food.Calories, &food.Coach)
 
 	if err != nil {
 		switch {
@@ -131,18 +140,18 @@ func (m MealsModel) GetById(food *Food) error {
 	return nil
 }
 
-func (m MealsModel) GetAllFood(food_name string, serving string, filter Filters) ([]*Food, Metadata, error) {
+func (m MealsModel) GetAllFood(food_name string, serving string, filter Filters, coach int64) ([]*Food, Metadata, error) {
 	query := `
 	SELECT count(*) OVER(),id, food_name, serving, calories
 	FROM food
-	WHERE (to_tsvector('simple', food_name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+	WHERE (to_tsvector('simple', food_name) @@ plainto_tsquery('simple', $1) OR $1 = '') AND coach = $5
 	AND (to_tsvector('simple', serving) @@ plainto_tsquery('simple', $2) OR $2 = '')
 	LIMIT $3 OFFSET $4`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, food_name, serving, filter.limit(), filter.offset())
+	rows, err := m.DB.QueryContext(ctx, query, food_name, serving, filter.limit(), filter.offset(), coach)
 
 	if err != nil {
 		return nil, Metadata{}, err
@@ -176,7 +185,7 @@ func (m MealsModel) GetAllFood(food_name string, serving string, filter Filters)
 	return foods, metadata, nil
 }
 
-func (m MealsModel) DeleteFood(id int64) error {
+func (m MealsModel) DeleteFood(id int64, coach int64) error {
 	if id < 1 {
 		return ErrRcordNotFound
 	}
@@ -207,11 +216,15 @@ func (m MealsModel) DeleteFood(id int64) error {
 
 	query := `
         DELETE FROM food
-        WHERE id = $1`
+        WHERE id = $1 AND coach = $2`
 
-	result, err := tx.ExecContext(ctx, query, id)
+	result, err := tx.ExecContext(ctx, query, id, coach)
 
 	if err != nil {
+		if strings.HasPrefix(err.Error(), `pq: update or delete on table "food" violates foreign key constraint`) {
+			err = ErrFKConflict
+			return err
+		}
 		return err
 	}
 
@@ -255,12 +268,12 @@ func (m MealsModel) CreateBreakfast(breakfast *Breakfast) error {
 			tx.Rollback()
 		}
 	}()
-	stmt := `INSERT INTO breakfast (calories) VALUES ($1) RETURNING id`
+	stmt := `INSERT INTO breakfast (calories, coach) VALUES ($1, $2) RETURNING id`
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err = tx.QueryRowContext(context, stmt, breakfast.Calories).Scan(&breakfast.Id)
+	err = tx.QueryRowContext(context, stmt, breakfast.Calories, breakfast.Coach).Scan(&breakfast.Id)
 
 	if err != nil {
 		return err
@@ -309,9 +322,9 @@ func (m *MealsModel) UpdateBreakfast(breakfast *Breakfast) error {
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt2 := `UPDATE breakfast SET calories = $1 WHERE id = $2`
+	stmt2 := `UPDATE breakfast SET calories = $1 WHERE id = $2 AND coach = $3`
 
-	result, err := tx.ExecContext(context, stmt2, breakfast.Calories, breakfast.Id)
+	result, err := tx.ExecContext(context, stmt2, breakfast.Calories, breakfast.Id, breakfast.Coach)
 	if err != nil {
 		return err
 	}
@@ -374,14 +387,14 @@ func (m *MealsModel) UpdateBreakfast(breakfast *Breakfast) error {
 func (m *MealsModel) GetAllBreakfastFoodsId(breakfast *Breakfast) error {
 	stmt := `SELECT breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
 	 INNER JOIN food ON breakfast_food.food_id = food.id
-	 WHERE breakfast.id = $1
+	 WHERE breakfast.id = $1 AND breakfast.coach = $2
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, breakfast.Id)
+	rows, err := m.DB.QueryContext(context, stmt, breakfast.Id, breakfast.Coach)
 
 	if err != nil {
 		return err
@@ -416,17 +429,18 @@ func (m *MealsModel) GetAllBreakfastFoodsId(breakfast *Breakfast) error {
 	return nil
 }
 
-func (m *MealsModel) GetAllBreakfastFoods(filter Filters) ([]*Breakfast, Metadata, error) {
+func (m *MealsModel) GetAllBreakfastFoods(filter Filters, coach int64) ([]*Breakfast, Metadata, error) {
 	stmt := `SELECT count(*) OVER(), breakfast.id, breakfast.calories,food.id,food_name,food.serving,food.calories FROM breakfast INNER JOIN breakfast_food ON breakfast.id = breakfast_food.breakfast_id
 	 INNER JOIN food ON breakfast_food.food_id = food.id
-	 LIMIT $1 OFFSET $2
+	 WHERE breakfast.coach = $1
+	 LIMIT $2 OFFSET $3
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+	rows, err := m.DB.QueryContext(context, stmt, coach, filter.limit(), filter.offset())
 
 	if err != nil {
 		return nil, Metadata{}, err
@@ -478,7 +492,7 @@ func (m *MealsModel) GetAllBreakfastFoods(filter Filters) ([]*Breakfast, Metadat
 
 }
 
-func (m MealsModel) DeleteBreakfast(id int64) error {
+func (m MealsModel) DeleteBreakfast(id int64, coach int64) error {
 	if id < 1 {
 		return ErrRcordNotFound
 	}
@@ -509,9 +523,9 @@ func (m MealsModel) DeleteBreakfast(id int64) error {
 
 	query1 := `
         DELETE FROM breakfast
-        WHERE id = $1`
+        WHERE id = $1 AND coach = $2`
 
-	result, err := tx.ExecContext(ctx, query1, id)
+	result, err := tx.ExecContext(ctx, query1, id, coach)
 
 	if err != nil {
 		return err
@@ -558,12 +572,12 @@ func (m MealsModel) CreateAmSnack(amSnack *AmSnack) error {
 			tx.Rollback()
 		}
 	}()
-	stmt := `INSERT INTO am_snack (calories) VALUES ($1) RETURNING id`
+	stmt := `INSERT INTO am_snack (calories,coach) VALUES ($1,$2) RETURNING id`
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err = tx.QueryRowContext(context, stmt, amSnack.Calories).Scan(&amSnack.Id)
+	err = tx.QueryRowContext(context, stmt, amSnack.Calories, amSnack.Coach).Scan(&amSnack.Id)
 
 	if err != nil {
 		return err
@@ -612,9 +626,9 @@ func (m *MealsModel) UpdateAmSnack(am_snack *AmSnack) error {
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt2 := `UPDATE am_snack SET calories = $1 WHERE id = $2`
+	stmt2 := `UPDATE am_snack SET calories = $1 WHERE id = $2 AND coach = $3`
 
-	result, err := tx.ExecContext(context, stmt2, am_snack.Calories, am_snack.Id)
+	result, err := tx.ExecContext(context, stmt2, am_snack.Calories, am_snack.Id, am_snack.Coach)
 
 	if err != nil {
 		return err
@@ -677,14 +691,14 @@ func (m *MealsModel) UpdateAmSnack(am_snack *AmSnack) error {
 func (m *MealsModel) GetAllAmSnackID(am_snack *AmSnack) error {
 	stmt := `SELECT am_snack.calories,food.id,food_name,food.serving,food.calories FROM am_snack INNER JOIN am_snack_food ON am_snack.id = am_snack_food.am_snack_id
 	 INNER JOIN food ON am_snack_food.food_id = food.id
-	 WHERE am_snack.id = $1
+	 WHERE am_snack.id = $1 AND am_snack.coach = $2
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, am_snack.Id)
+	rows, err := m.DB.QueryContext(context, stmt, am_snack.Id, am_snack.Coach)
 
 	if err != nil {
 		return err
@@ -719,17 +733,18 @@ func (m *MealsModel) GetAllAmSnackID(am_snack *AmSnack) error {
 	return nil
 }
 
-func (m *MealsModel) GetAllAmSnacks(filter Filters) ([]*AmSnack, Metadata, error) {
+func (m *MealsModel) GetAllAmSnacks(filter Filters, coach int64) ([]*AmSnack, Metadata, error) {
 	stmt := `SELECT count(*) OVER(), am_snack.id, am_snack.calories,food.id,food_name,food.serving,food.calories FROM am_snack INNER JOIN am_snack_food ON am_snack.id = am_snack_food.am_snack_id
 	 INNER JOIN food ON am_snack_food.food_id = food.id
-	 LIMIT $1 OFFSET $2
+	 WHERE am_snack.coach = $1
+	 LIMIT $2 OFFSET $3
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+	rows, err := m.DB.QueryContext(context, stmt, coach, filter.limit(), filter.offset())
 
 	if err != nil {
 		return nil, Metadata{}, err
@@ -781,7 +796,7 @@ func (m *MealsModel) GetAllAmSnacks(filter Filters) ([]*AmSnack, Metadata, error
 
 }
 
-func (m MealsModel) DeleteAmSnack(id int64) error {
+func (m MealsModel) DeleteAmSnack(id int64, coach int64) error {
 	if id < 1 {
 		return ErrRcordNotFound
 	}
@@ -812,9 +827,9 @@ func (m MealsModel) DeleteAmSnack(id int64) error {
 
 	query1 := `
         DELETE FROM am_snack
-        WHERE id = $1`
+        WHERE id = $1 AND coach = $2`
 
-	result, err := tx.ExecContext(ctx, query1, id)
+	result, err := tx.ExecContext(ctx, query1, id, coach)
 
 	if err != nil {
 		return err
@@ -861,12 +876,12 @@ func (m MealsModel) CreateLunch(lunch *Lunch) error {
 			tx.Rollback()
 		}
 	}()
-	stmt := `INSERT INTO lunch (calories) VALUES ($1) RETURNING id`
+	stmt := `INSERT INTO lunch (calories, coach) VALUES ($1,$2) RETURNING id`
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err = tx.QueryRowContext(context, stmt, lunch.Calories).Scan(&lunch.Id)
+	err = tx.QueryRowContext(context, stmt, lunch.Calories, lunch.Coach).Scan(&lunch.Id)
 
 	if err != nil {
 		return err
@@ -915,9 +930,9 @@ func (m *MealsModel) UpdateLunch(lunch *Lunch) error {
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt2 := `UPDATE lunch SET calories = $1 WHERE id = $2`
+	stmt2 := `UPDATE lunch SET calories = $1 WHERE id = $2 AND coach = $3`
 
-	result, err := tx.ExecContext(context, stmt2, lunch.Calories, lunch.Id)
+	result, err := tx.ExecContext(context, stmt2, lunch.Calories, lunch.Id, lunch.Coach)
 
 	if err != nil {
 		return err
@@ -982,14 +997,14 @@ func (m *MealsModel) UpdateLunch(lunch *Lunch) error {
 func (m *MealsModel) GetAllLunchFoodsId(lunch *Lunch) error {
 	stmt := `SELECT lunch.calories,food.id,food_name,food.serving,food.calories FROM lunch INNER JOIN lunch_food ON lunch.id = lunch_food.lunch_id
 	 INNER JOIN food ON lunch_food.food_id = food.id
-	 WHERE lunch.id = $1
+	 WHERE lunch.id = $1 AND lunch.coach = $2
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, lunch.Id)
+	rows, err := m.DB.QueryContext(context, stmt, lunch.Id, lunch.Coach)
 
 	if err != nil {
 		return err
@@ -1024,17 +1039,18 @@ func (m *MealsModel) GetAllLunchFoodsId(lunch *Lunch) error {
 	return nil
 }
 
-func (m *MealsModel) GetAllLunches(filter Filters) ([]*Lunch, Metadata, error) {
+func (m *MealsModel) GetAllLunches(filter Filters, coach int64) ([]*Lunch, Metadata, error) {
 	stmt := `SELECT count(*) OVER(), lunch.id, lunch.calories,food.id,food_name,food.serving,food.calories FROM lunch INNER JOIN lunch_food ON lunch.id = lunch_food.lunch_id
 	 INNER JOIN food ON lunch_food.food_id = food.id
-	 LIMIT $1 OFFSET $2
+	 WHERE lunch.coach = $1
+	 LIMIT $2 OFFSET $3
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+	rows, err := m.DB.QueryContext(context, stmt, coach, filter.limit(), filter.offset())
 
 	if err != nil {
 		return nil, Metadata{}, err
@@ -1086,7 +1102,7 @@ func (m *MealsModel) GetAllLunches(filter Filters) ([]*Lunch, Metadata, error) {
 
 }
 
-func (m MealsModel) DeleteLunch(id int64) error {
+func (m MealsModel) DeleteLunch(id int64, coach int64) error {
 	if id < 1 {
 		return ErrRcordNotFound
 	}
@@ -1117,9 +1133,9 @@ func (m MealsModel) DeleteLunch(id int64) error {
 
 	query1 := `
         DELETE FROM lunch
-        WHERE id = $1`
+        WHERE id = $1 AND coach = $2`
 
-	result, err := tx.ExecContext(ctx, query1, id)
+	result, err := tx.ExecContext(ctx, query1, id, coach)
 
 	if err != nil {
 		return err
@@ -1165,12 +1181,12 @@ func (m MealsModel) CreatePmSnack(PmSnack *PmSnack) error {
 			tx.Rollback()
 		}
 	}()
-	stmt := `INSERT INTO pm_snack (calories) VALUES ($1) RETURNING id`
+	stmt := `INSERT INTO pm_snack (calories, coach ) VALUES ($1, $2) RETURNING id`
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err = tx.QueryRowContext(context, stmt, PmSnack.Calories).Scan(&PmSnack.Id)
+	err = tx.QueryRowContext(context, stmt, PmSnack.Calories, PmSnack.Coach).Scan(&PmSnack.Id)
 
 	if err != nil {
 		return err
@@ -1219,9 +1235,9 @@ func (m *MealsModel) UpdatePmSnack(pm_snack *PmSnack) error {
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt2 := `UPDATE pm_snack SET calories = $1 WHERE id = $2`
+	stmt2 := `UPDATE pm_snack SET calories = $1 WHERE id = $2 AND coach = $3`
 
-	result, err := tx.ExecContext(context, stmt2, pm_snack.Calories, pm_snack.Id)
+	result, err := tx.ExecContext(context, stmt2, pm_snack.Calories, pm_snack.Id, pm_snack.Coach)
 
 	if err != nil {
 		return err
@@ -1284,14 +1300,14 @@ func (m *MealsModel) UpdatePmSnack(pm_snack *PmSnack) error {
 func (m *MealsModel) GetAllPmSnackID(pm_snack *PmSnack) error {
 	stmt := `SELECT pm_snack.calories,food.id,food_name,food.serving,food.calories FROM pm_snack INNER JOIN pm_snack_food ON pm_snack.id = pm_snack_food.pm_snack_id
 	 INNER JOIN food ON pm_snack_food.food_id = food.id
-	 WHERE pm_snack.id = $1
+	 WHERE pm_snack.id = $1 AND pm_snack.coach = $2
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, pm_snack.Id)
+	rows, err := m.DB.QueryContext(context, stmt, pm_snack.Id, pm_snack.Coach)
 
 	if err != nil {
 		return err
@@ -1326,17 +1342,18 @@ func (m *MealsModel) GetAllPmSnackID(pm_snack *PmSnack) error {
 	return nil
 }
 
-func (m *MealsModel) GetAllPmSnacks(filter Filters) ([]*PmSnack, Metadata, error) {
+func (m *MealsModel) GetAllPmSnacks(filter Filters, coach int64) ([]*PmSnack, Metadata, error) {
 	stmt := `SELECT count(*) OVER(), pm_snack.id, pm_snack.calories,food.id,food_name,food.serving,food.calories FROM pm_snack INNER JOIN pm_snack_food ON pm_snack.id = pm_snack_food.pm_snack_id
 	 INNER JOIN food ON pm_snack_food.food_id = food.id
-	 LIMIT $1 OFFSET $2
+	 WHERE pm_snack.coach = $1
+	 LIMIT $2 OFFSET $3
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+	rows, err := m.DB.QueryContext(context, stmt, coach, filter.limit(), filter.offset())
 
 	if err != nil {
 		return nil, Metadata{}, err
@@ -1388,7 +1405,7 @@ func (m *MealsModel) GetAllPmSnacks(filter Filters) ([]*PmSnack, Metadata, error
 
 }
 
-func (m MealsModel) DeletePmSnack(id int64) error {
+func (m MealsModel) DeletePmSnack(id int64, coach int64) error {
 	if id < 1 {
 		return ErrRcordNotFound
 	}
@@ -1419,9 +1436,9 @@ func (m MealsModel) DeletePmSnack(id int64) error {
 
 	query1 := `
         DELETE FROM pm_snack
-        WHERE id = $1`
+        WHERE id = $1 AND coach = $2`
 
-	result, err := tx.ExecContext(ctx, query1, id)
+	result, err := tx.ExecContext(ctx, query1, id, coach)
 
 	if err != nil {
 		return err
@@ -1468,12 +1485,12 @@ func (m MealsModel) CreateDinner(Dinner *Dinner) error {
 			tx.Rollback()
 		}
 	}()
-	stmt := `INSERT INTO dinner (calories) VALUES ($1) RETURNING id`
+	stmt := `INSERT INTO dinner (calories, coach) VALUES ($1, $2) RETURNING id`
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err = tx.QueryRowContext(context, stmt, Dinner.Calories).Scan(&Dinner.Id)
+	err = tx.QueryRowContext(context, stmt, Dinner.Calories, Dinner.Coach).Scan(&Dinner.Id)
 
 	if err != nil {
 		return err
@@ -1522,9 +1539,9 @@ func (m *MealsModel) UpdateDinner(dinner *Dinner) error {
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	stmt2 := `UPDATE dinner SET calories = $1 WHERE id = $2`
+	stmt2 := `UPDATE dinner SET calories = $1 WHERE id = $2 AND coach  = $3`
 
-	result, err := tx.ExecContext(context, stmt2, dinner.Calories, dinner.Id)
+	result, err := tx.ExecContext(context, stmt2, dinner.Calories, dinner.Id, dinner.Coach)
 
 	if err != nil {
 		return err
@@ -1587,14 +1604,14 @@ func (m *MealsModel) UpdateDinner(dinner *Dinner) error {
 func (m *MealsModel) GetAllDinnerID(dinner *Dinner) error {
 	stmt := `SELECT dinner.calories,food.id,food_name,food.serving,food.calories FROM dinner INNER JOIN dinner_food ON dinner.id = dinner_food.dinner_id
 	 INNER JOIN food ON dinner_food.food_id = food.id
-	 WHERE dinner.id = $1
+	 WHERE dinner.id = $1 AND dinner.coach = $2
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, dinner.Id)
+	rows, err := m.DB.QueryContext(context, stmt, dinner.Id, dinner.Coach)
 
 	if err != nil {
 		return err
@@ -1629,17 +1646,18 @@ func (m *MealsModel) GetAllDinnerID(dinner *Dinner) error {
 	return nil
 }
 
-func (m *MealsModel) GetAllDinners(filter Filters) ([]*Dinner, Metadata, error) {
+func (m *MealsModel) GetAllDinners(filter Filters, coach int64) ([]*Dinner, Metadata, error) {
 	stmt := `SELECT count(*) OVER(), dinner.id, dinner.calories,food.id,food_name,food.serving,food.calories FROM dinner INNER JOIN dinner_food ON dinner.id = dinner_food.dinner_id
 	 INNER JOIN food ON dinner_food.food_id = food.id
-	 LIMIT $1 OFFSET $2
+	 WHERE dinner.coach = $1
+	 LIMIT $2 OFFSET $3
 	 `
 
 	context, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(context, stmt, filter.limit(), filter.offset())
+	rows, err := m.DB.QueryContext(context, stmt, coach, filter.limit(), filter.offset())
 
 	if err != nil {
 		return nil, Metadata{}, err
@@ -1691,7 +1709,7 @@ func (m *MealsModel) GetAllDinners(filter Filters) ([]*Dinner, Metadata, error) 
 
 }
 
-func (m MealsModel) DeleteDinner(id int64) error {
+func (m MealsModel) DeleteDinner(id, coach int64) error {
 	if id < 1 {
 		return ErrRcordNotFound
 	}
@@ -1722,9 +1740,9 @@ func (m MealsModel) DeleteDinner(id int64) error {
 
 	query1 := `
         DELETE FROM dinner
-        WHERE id = $1`
+        WHERE id = $1 AND coach = $2`
 
-	result, err := tx.ExecContext(ctx, query1, id)
+	result, err := tx.ExecContext(ctx, query1, id, coach)
 
 	if err != nil {
 		return err

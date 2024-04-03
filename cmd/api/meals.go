@@ -21,11 +21,13 @@ func (app *application) addFood(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	user := app.contextGetUser(r)
 
 	food := &data.Food{
 		FoodName: input.FoodName,
 		Serving:  input.Serving,
 		Calories: input.Calories,
+		Coach:    user.Id,
 	}
 
 	v := validator.New()
@@ -42,6 +44,9 @@ func (app *application) addFood(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, data.ErrUniqueFood):
 			v.AddError("food", "food name and serving must be unique")
 			app.failedValidationResponse(w, r, v.Errors)
+			return
+		case errors.Is(err, data.ErrRcordNotFound):
+			app.notFoundResponse(w, r)
 			return
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -63,8 +68,11 @@ func (app *application) retriveFood(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	food := &data.Food{
-		Id: id,
+		Id:    id,
+		Coach: user.Id,
 	}
 
 	err = app.models.Meals.GetById(food)
@@ -93,12 +101,18 @@ func (app *application) updateFood(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	user := app.contextGetUser(r)
 
 	food := &data.Food{
-		Id: id,
+		Id:    id,
+		Coach: user.Id,
 	}
-
 	err = app.models.Meals.GetById(food)
+
+	if food.Coach != user.Id {
+		app.notPermittedResponse(w, r)
+		return
+	}
 
 	if err != nil {
 		switch {
@@ -176,12 +190,14 @@ func (app *application) listFoods(w http.ResponseWriter, r *http.Request) {
 	input.Filters.PageSize = app.readInt(r.URL.Query(), "page_size", 10, v)
 	input.Filters.Page = app.readInt(r.URL.Query(), "page_number", 1, v)
 
+	user := app.contextGetUser(r)
+
 	if data.ValidateFilters(v, input.Filters); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
-	foods, metadata, err := app.models.Meals.GetAllFood(input.Food_name, input.Serving, input.Filters)
+	foods, metadata, err := app.models.Meals.GetAllFood(input.Food_name, input.Serving, input.Filters, user.Id)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -208,8 +224,11 @@ func (app *application) addBreakfast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	breakfast := &data.Breakfast{
-		Food: breakfast_input.Foods,
+		Food:  breakfast_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -259,9 +278,12 @@ func (app *application) updateBreakfast(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	breakfast := &data.Breakfast{
-		Id:   id,
-		Food: breakfast_input.Foods,
+		Id:    id,
+		Food:  breakfast_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -302,8 +324,10 @@ func (app *application) getBreakfastFoodById(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	user := app.contextGetUser(r)
 	breakfast := &data.Breakfast{
-		Id: id,
+		Id:    id,
+		Coach: user.Id,
 	}
 
 	err = app.models.Meals.GetAllBreakfastFoodsId(breakfast)
@@ -340,8 +364,9 @@ func (app *application) listBreakfasts(w http.ResponseWriter, r *http.Request) {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
+	user := app.contextGetUser(r)
 
-	breakfasts, metadata, err := app.models.Meals.GetAllBreakfastFoods(input.Filters)
+	breakfasts, metadata, err := app.models.Meals.GetAllBreakfastFoods(input.Filters, user.Id)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -362,12 +387,17 @@ func (app *application) deleteFoodHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.models.Meals.DeleteFood(id)
+	user := app.contextGetUser(r)
+
+	err = app.models.Meals.DeleteFood(id, user.Id)
 
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRcordNotFound):
 			app.notFoundResponse(w, r)
+			return
+		case errors.Is(err, data.ErrFKConflict):
+			app.conflictResponse(w, r)
 			return
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -385,7 +415,8 @@ func (app *application) deleteBreakfastHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = app.models.Meals.DeleteBreakfast(id)
+	user := app.contextGetUser(r)
+	err = app.models.Meals.DeleteBreakfast(id, user.Id)
 
 	if err != nil {
 		switch {
@@ -416,8 +447,10 @@ func (app *application) addAmSnack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
 	am_snack := &data.AmSnack{
-		Food: am_snack_input.Foods,
+		Food:  am_snack_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -466,10 +499,12 @@ func (app *application) updateAmSnack(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	user := app.contextGetUser(r)
 
 	am_snack := &data.AmSnack{
-		Id:   id,
-		Food: am_snack_input.Foods,
+		Id:    id,
+		Food:  am_snack_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -510,8 +545,11 @@ func (app *application) getAmSnackFoodById(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	am_snack := &data.AmSnack{
-		Id: id,
+		Id:    id,
+		Coach: user.Id,
 	}
 
 	err = app.models.Meals.GetAllAmSnackID(am_snack)
@@ -549,7 +587,9 @@ func (app *application) listAmSnacks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	am_snacks, metadata, err := app.models.Meals.GetAllAmSnacks(input.Filters)
+	user := app.contextGetUser(r)
+
+	am_snacks, metadata, err := app.models.Meals.GetAllAmSnacks(input.Filters, user.Id)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -570,7 +610,9 @@ func (app *application) deleteAmSnackHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = app.models.Meals.DeleteAmSnack(id)
+	user := app.contextGetUser(r)
+
+	err = app.models.Meals.DeleteAmSnack(id, user.Id)
 
 	if err != nil {
 		switch {
@@ -601,8 +643,11 @@ func (app *application) addLunch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	lunch := &data.Lunch{
-		Food: lunch_input.Foods,
+		Food:  lunch_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -652,9 +697,12 @@ func (app *application) updateLunch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	lunch := &data.Lunch{
-		Id:   id,
-		Food: lunch_input.Foods,
+		Id:    id,
+		Food:  lunch_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -695,8 +743,11 @@ func (app *application) getLunchById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	lunch := &data.Lunch{
-		Id: id,
+		Id:    id,
+		Coach: user.Id,
 	}
 
 	err = app.models.Meals.GetAllLunchFoodsId(lunch)
@@ -734,7 +785,9 @@ func (app *application) listlunches(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lunches, metadata, err := app.models.Meals.GetAllLunches(input.Filters)
+	user := app.contextGetUser(r)
+
+	lunches, metadata, err := app.models.Meals.GetAllLunches(input.Filters, user.Id)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -755,7 +808,9 @@ func (app *application) deleteLunchHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err = app.models.Meals.DeleteLunch(id)
+	user := app.contextGetUser(r)
+
+	err = app.models.Meals.DeleteLunch(id, user.Id)
 
 	if err != nil {
 		switch {
@@ -785,9 +840,11 @@ func (app *application) addPmSnack(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	user := app.contextGetUser(r)
 
 	pm_snack := &data.PmSnack{
-		Food: pm_snack_input.Foods,
+		Food:  pm_snack_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -836,10 +893,12 @@ func (app *application) updatePmSnack(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	user := app.contextGetUser(r)
 
 	pm_snack := &data.PmSnack{
-		Id:   id,
-		Food: pm_snack_input.Foods,
+		Id:    id,
+		Food:  pm_snack_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -880,8 +939,11 @@ func (app *application) getPmSnackById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	pm_snack := &data.PmSnack{
-		Id: id,
+		Id:    id,
+		Coach: user.Id,
 	}
 
 	err = app.models.Meals.GetAllPmSnackID(pm_snack)
@@ -919,7 +981,9 @@ func (app *application) listPmsnacks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pm_snacks, metadata, err := app.models.Meals.GetAllPmSnacks(input.Filters)
+	user := app.contextGetUser(r)
+
+	pm_snacks, metadata, err := app.models.Meals.GetAllPmSnacks(input.Filters, user.Id)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -940,7 +1004,9 @@ func (app *application) deletePmSnackHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = app.models.Meals.DeletePmSnack(id)
+	user := app.contextGetUser(r)
+
+	err = app.models.Meals.DeletePmSnack(id, user.Id)
 
 	if err != nil {
 		switch {
@@ -971,8 +1037,11 @@ func (app *application) addDinner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	dinner := &data.Dinner{
-		Food: dinner_input.Foods,
+		Food:  dinner_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -1022,9 +1091,12 @@ func (app *application) updateDinner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	dinner := &data.Dinner{
-		Id:   id,
-		Food: dinner_input.Foods,
+		Id:    id,
+		Food:  dinner_input.Foods,
+		Coach: user.Id,
 	}
 
 	v := validator.New()
@@ -1065,8 +1137,11 @@ func (app *application) getDinnerById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := app.contextGetUser(r)
+
 	dinner := &data.Dinner{
-		Id: id,
+		Id:    id,
+		Coach: user.Id,
 	}
 
 	err = app.models.Meals.GetAllDinnerID(dinner)
@@ -1104,7 +1179,9 @@ func (app *application) listDinners(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dinners, metadata, err := app.models.Meals.GetAllDinners(input.Filters)
+	user := app.contextGetUser(r)
+
+	dinners, metadata, err := app.models.Meals.GetAllDinners(input.Filters, user.Id)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -1125,7 +1202,8 @@ func (app *application) deleteDinnerHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = app.models.Meals.DeleteDinner(id)
+	user := app.contextGetUser(r)
+	err = app.models.Meals.DeleteDinner(id, user.Id)
 
 	if err != nil {
 		switch {

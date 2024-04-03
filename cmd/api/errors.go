@@ -83,3 +83,8 @@ func (app *application) notPermittedResponse(w http.ResponseWriter, r *http.Requ
 	message := "your user account doesn't have the necessary permissions to access this resource"
 	app.errorResponse(w, r, http.StatusForbidden, message)
 }
+
+func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request) {
+	message := "The request could not be completed due to a conflict with the current state of the target resource"
+	app.errorResponse(w, r, http.StatusConflict, message)
+}
